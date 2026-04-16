@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Trainen met een doel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1f2730;
+    --border: #556070;
+    --accent: #4ade80;
+    --accent2: #86efac;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --text: #ffffff;
+    --muted: #ffffff;
+    --mono: 'DM Mono', monospace;
+    --serif: 'Fraunces', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(74,222,128,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(74,222,128,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── PROFILE SELECTIE SCHERM ─── */
+  #profile-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 200;
+    overflow-y: auto;
+    padding-bottom: 48px;
+  }
+  #profile-screen.active { display: block; }
+
+  .ps-header {
+    padding: 48px 20px 28px;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+  }
+  .ps-eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .ps-header h1 {
+    font-family: var(--serif);
+    font-size: 34px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--text);
+  }
+  .ps-header h1 em { font-style: italic; color: var(--accent); }
+  .ps-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 10px;
+    line-height: 1.5;
+    opacity: 0.7;
+  }
+
+  .ps-section-label {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    opacity: 0.5;
+    padding: 0 20px;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .profile-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0 16px;
+    max-width: 480px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+  }
+  .profile-grid.single { grid-template-columns: 1fr; }
+
+  .profile-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 18px 14px 16px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, transform 0.1s;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .profile-card:hover { border-color: var(--accent); background: rgba(74,222,128,0.04); }
+  .profile-card:active { transform: scale(0.97); }
+
+  .pc-icon { font-size: 26px; margin-bottom: 2px; }
+  .pc-title {
+    font-family: var(--serif);
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .pc-sub {
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .pc-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 2px;
+  }
+  .pc-tag {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 99px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    opacity: 0.8;
+  }
+  .pc-desc {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-top: 4px;
+    opacity: 0.7;
+  }
+
+  /* ─── MAIN APP ─── */
+  .app { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding: 0 0 80px; }
+
+  header {
+    padding: 20px 20px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  header .eyebrow {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  header h1 {
+    font-family: var(--serif);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--text);
+  }
+  header h1 em { font-style: italic; color: var(--accent); }
+
+  .header-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 10px;
+  }
+  .header-profile-name {
+    font-size: 11px;
+    color: var(--muted);
+    opacity: 0.6;
+    letter-spacing: 0.05em;
+  }
+  .btn-switch-schema {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-family: var(--mono);
+    opacity: 0.7;
+    transition: all 0.2s;
+  }
+  .btn-switch-schema:hover { border-color: var(--accent); color: var(--accent); opacity: 1; }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .tab-btn {
+    flex: 1;
+    padding: 14px 8px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .panel { display: none; padding: 20px; }
+  .panel.active { display: block; }
+
+  /* PROGRESS */
+  .progress-bar-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+  .progress-bar-wrap .label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .progress-bar-wrap .label strong { color: var(--accent); }
+  .progress-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 99px;
+    transition: width 0.5s ease;
+  }
+  .progress-weeks {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    opacity: 0.6;
+  }
+
+  /* WEEK BLOCKS */
+  .week-block {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .week-block.current { border-color: var(--accent); }
+  .week-block.done { opacity: 0.6; }
+
+  .week-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--surface);
+    cursor: pointer;
+  }
+  .week-header .week-label {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .week-header .week-title {
+    font-family: var(--serif);
+    font-size: 15px;
+    color: var(--text);
+    margin-top: 2px;
+  }
+  .week-header .week-badge {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 99px;
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .week-block.current .week-badge {
+    background: rgba(74,222,128,0.1);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .week-sessions { display: none; padding: 12px; gap: 8px; flex-direction: column; }
+  .week-sessions.open { display: flex; }
+
+  .session-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .session-card:hover { border-color: var(--accent); }
+  .session-card.completed { border-color: var(--accent); background: rgba(74,222,128,0.05); }
+  .session-card.completed .session-type { color: var(--accent); }
+
+  .session-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+  .session-type {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.3;
+    flex: 1;
+    padding-right: 10px;
+  }
+  .session-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+  }
+  .session-dist {
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent2);
+    text-align: right;
+    line-height: 1;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .session-dist span { font-size: 11px; color: var(--muted); font-family: var(--mono); display: block; }
+  .session-planned-date { font-size: 11px; color: var(--accent); margin-top: 4px; letter-spacing: 0.03em; }
+
+  /* TRACKER */
+  .tracker-idle, .tracker-active, .tracker-done { display: none; }
+  .tracker-idle.visible, .tracker-active.visible, .tracker-done.visible { display: block; }
+
+  .big-metric { text-align: center; padding: 32px 20px; }
+  .big-metric .value {
+    font-family: var(--serif);
+    font-size: 72px;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1;
+    letter-spacing: -2px;
+  }
+  .big-metric .unit {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 20px 24px; }
+  .metric-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+  .metric-box .val { font-family: var(--serif); font-size: 28px; font-weight: 700; color: var(--text); }
+  .metric-box .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+
+  .btn {
+    display: block;
+    width: calc(100% - 40px);
+    margin: 0 20px 12px;
+    padding: 18px;
+    border-radius: 12px;
+    border: none;
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary { background: var(--accent); color: #0d1117; font-weight: 500; }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+  .btn-muted { background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
+  .btn-done { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+  .btn-lock { background: transparent; border: 1px solid var(--warn); color: var(--warn); }
+
+  .tracker-info {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin: 0 20px 20px;
+    padding: 16px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .tracker-info strong { color: var(--text); }
+
+  .gps-dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--warn);
+    margin-right: 6px;
+    animation: pulse 1.5s infinite;
+  }
+  .gps-dot.locked { background: var(--accent); }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* HISTORY */
+  .history-empty { text-align: center; padding: 48px 20px; color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .history-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .history-item .hi-date { font-size: 11px; color: var(--muted); margin-bottom: 3px; }
+  .history-item .hi-name { font-size: 14px; color: var(--text); }
+  .history-item .hi-dist { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--accent2); text-align: right; }
+  .history-item .hi-dist span { font-size: 11px; color: var(--muted); font-family: var(--mono); }
+  .section-title { font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 100; align-items: flex-end; }
+  .modal-overlay.open { display: flex; }
+  .modal-sheet {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-sheet h2 { font-family: var(--serif); font-size: 22px; margin-bottom: 6px; }
+  .modal-sheet .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+  .modal-actions { display: flex; flex-direction: column; gap: 10px; }
+  .modal-actions .btn { width: 100%; margin: 0; }
+  .date-picker-wrap { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 16px; }
+  .date-label { display: block; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .date-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-family: var(--mono); font-size: 15px; outline: none; transition: border-color 0.2s; }
+  .date-input:focus { border-color: var(--accent); }
+  .date-hint { font-size: 11px; color: var(--muted); margin-top: 7px; }
+
+  /* LOCK SCREEN */
+  #lock-screen {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 20px;
+    touch-action: none;
+  }
+  #lock-screen.active { display: flex; }
+  .lock-dist { font-family: var(--serif); font-size: 96px; font-weight: 700; color: var(--accent); line-height: 1; letter-spacing: -4px; }
+  .lock-unit { font-size: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.15em; margin-top: 8px; margin-bottom: 40px; }
+  .lock-stats { display: flex; gap: 48px; margin-bottom: 60px; }
+  .lock-stats span { font-family: var(--serif); font-size: 36px; font-weight: 700; color: var(--text); display: block; }
+  .lock-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+  .lock-hint { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .lock-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 18px 32px;
+    border-radius: 12px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .lock-btn::after { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 0%; background: rgba(74,222,128,0.15); transition: none; }
+  .lock-btn.filling::after { width: 100%; transition: width 3s linear; }
+</style>
+</head>
+<body>
+
+<!-- ─── SCHEMA SELECTIE SCHERM ─── -->
+<div id="profile-screen">
+  <div class="ps-header">
+    <div class="ps-eyebrow">Trainen met een doel</div>
+    <h1>Kies jouw <em>schema</em></h1>
+    <p class="ps-sub">Selecteer je doel en we maken een persoonlijk trainingsplan voor jou.</p>
+  </div>
+
+  <div class="ps-section-label" style="margin-bottom:12px;">Halve marathon · 21,1 km</div>
+  <div class="profile-grid" id="grid-hm"></div>
+
+  <div class="ps-section-label" style="margin-top:24px;margin-bottom:12px;">Kortere afstanden</div>
+  <div class="profile-grid" id="grid-short"></div>
+</div>
+
+<!-- ─── HOOFDAPP ─── -->
+<div class="app" id="main-app" style="display:none">
+  <header>
+    <div class="eyebrow" id="header-eyebrow">—</div>
+    <h1>Trainen met een <em>doel</em></h1>
+    <div class="header-bottom">
+      <span class="header-profile-name" id="header-profile-name"></span>
+      <button class="btn-switch-schema" onclick="showProfileScreen()">↻ Wijzig schema</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('schema')">Schema</button>
+    <button class="tab-btn" onclick="showTab('tracker')">GPS Tracker</button>
+    <button class="tab-btn" onclick="showTab('history')">Logboek</button>
+  </div>
+
+  <div id="tab-schema" class="panel active">
+    <div class="progress-bar-wrap">
+      <div class="label">
+        <span>Voortgang</span>
+        <strong id="progress-text">0 trainingen</strong>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-fill" style="width:2%"></div>
+      </div>
+      <div class="progress-weeks" id="progress-weeks-labels"></div>
+    </div>
+    <div id="weeks-container"></div>
+  </div>
+
+  <div id="tab-tracker" class="panel">
+    <div class="tracker-idle visible" id="tracker-idle">
+      <div class="tracker-info">
+        <span class="gps-dot" id="gps-dot"></span>
+        <strong id="gps-status">GPS verbinding zoeken…</strong><br><br>
+        Start een training vanuit het <strong>Schema</strong> of start hier een vrije loop.
+      </div>
+      <div id="session-start-section" style="display:none">
+        <div class="tracker-info">
+          <strong id="session-start-name"></strong><br>
+          <span id="session-start-target" style="font-size:12px;color:var(--accent);"></span>
+        </div>
+        <button class="btn btn-primary" onclick="startSessionRun()">▶ Start training</button>
+      </div>
+      <button class="btn btn-muted" id="free-run-btn" onclick="startFreeRun()">▶ Vrije loop starten</button>
+    </div>
+
+    <div class="tracker-active" id="tracker-active">
+      <div class="big-metric">
+        <div class="value" id="live-dist">0.00</div>
+        <div class="unit">kilometer</div>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-box"><div class="val" id="live-time">00:00</div><div class="lbl">Tijd</div></div>
+        <div class="metric-box"><div class="val" id="live-pace">--:--</div><div class="lbl">Tempo /km</div></div>
+        <div class="metric-box"><div class="val" id="live-speed">0.0</div><div class="lbl">km/u</div></div>
+        <div class="metric-box"><div class="val" id="live-target">—</div><div class="lbl">Doel km</div></div>
+      </div>
+      <button class="btn btn-lock" onclick="lockScreen()">🔒 Scherm vergrendelen</button>
+      <button class="btn btn-danger" onclick="stopRun()">■ Stop training</button>
+    </div>
+
+    <div id="lock-screen">
+      <div class="lock-dist" id="lock-dist">0.00</div>
+      <div class="lock-unit">kilometer</div>
+      <div class="lock-stats">
+        <div><span id="lock-time">00:00</span><div class="lock-lbl">Tijd</div></div>
+        <div><span id="lock-pace">--:--</span><div class="lock-lbl">Tempo /km</div></div>
+      </div>
+      <div class="lock-hint">Houd 3 seconden ingedrukt om te ontgrendelen</div>
+      <button class="lock-btn" id="lock-btn"
+        onpointerdown="startUnlock()" onpointerup="cancelUnlock()" onpointerleave="cancelUnlock()">
+        🔓 Houd ingedrukt om te ontgrendelen
+      </button>
+    </div>
+
+    <div class="tracker-done" id="tracker-done">
+      <div class="big-metric">
+        <div style="font-size:40px;margin-bottom:8px">✓</div>
+        <div class="value" id="done-dist">0.00</div>
+        <div class="unit">kilometer · training voltooid</div>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-box"><div class="val" id="done-time">00:00</div><div class="lbl">Tijd</div></div>
+        <div class="metric-box"><div class="val" id="done-pace">--:--</div><div class="lbl">Gem. tempo</div></div>
+      </div>
+      <button class="btn btn-primary" onclick="saveRun()">💾 Opslaan in logboek</button>
+      <button class="btn btn-muted" onclick="resetTracker()">Nieuw</button>
+    </div>
+  </div>
+
+  <div id="tab-history" class="panel">
+    <div class="section-title">Voltooide trainingen</div>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="session-modal">
+  <div class="modal-sheet">
+    <h2 id="modal-title">Training</h2>
+    <div class="modal-sub" id="modal-desc"></div>
+    <div class="date-picker-wrap">
+      <label class="date-label">📅 Geplande datum</label>
+      <input type="date" id="session-date-input" class="date-input" onchange="saveSessionDate()">
+      <div class="date-hint">Pas de datum aan als je de training wilt verplaatsen</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="launchSessionTracker()">▶ Start met GPS-tracker</button>
+      <button class="btn btn-done" onclick="markSessionDone()">✓ Markeer als voltooid</button>
+      <button class="btn btn-muted" onclick="closeModal()">Sluiten</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// SCHEMA PROFIELEN
+// ═══════════════════════════════════════════════════════
+
+const PROFILES = [
+
+  // ───────────────────────────────────────────────────
+  // 1. HALVE MARATHON — JONGERE (13-14 jaar)
+  // ───────────────────────────────────────────────────
+  {
+    id: 'jongere_hm',
+    icon: '🏅',
+    title: 'Halve Marathon',
+    subtitle: 'Jongere (13–14 jaar)',
+    desc: 'Met atletiek op di/do. Speciaal volume voor jonge lopers die nog groeien.',
+    distance: '21,1 km',
+    level: 'Beginner',
+    startDate: new Date('2026-04-21'),
+    raceLabel: '11 oktober 2026 · Eindhoven',
+    phases: [
+      { weeks:[1,2,3,4], name:'Fase 1 — Basis opbouwen' },
+      { weeks:[5,6,7,8], name:'Fase 2 — Uithoudingsvermogen' },
+      { weeks:[9,10,11,12], name:'Fase 3 — Langere lopen' },
+      { weeks:[13,14,15,16], name:'Fase 4 — Opbouw intensiteit' },
+      { weeks:[17,18,19,20], name:'Fase 5 — Piekmijlen' },
+      { weeks:[21], name:'Fase 6 — Proefloop halve marathon' },
+      { weeks:[22,23,24], name:'Fase 7 — Tapering & finetuning' },
+      { weeks:[25], name:'Wedstrijdweek — Eindhoven 11 oktober' },
+    ],
+    schema: [
+      { w:1, sessions:[
+        { type:'Rustige startloop', desc:'Loop 3 km in een tempo waarbij je nog gewoon kunt praten. Wandelen mag! Doel: bewegen zonder jezelf te forceren. Morgen heb je atletiek — sla je energie niet op.', km:3 },
+        { type:'Herstel na atletiek', desc:'Gisteren had je atletiekles — vandaag is herstel. 20-30 min rustig wandelen of zwemmen. Geen hardlopen. Je benen mogen bijkomen.', km:0 },
+        { type:'Eerste weekendloop', desc:'4 km rustig en in je eigen tempo. Neem de tijd, geniet van de beweging. Dit is je langste loop tot nu toe!', km:4 },
+      ]},
+      { w:2, sessions:[
+        { type:'Onderhoudsduurloop', desc:'4 km in rustig tempo. Probeer het hele stuk door te lopen zonder te wandelen. Tempo: je kunt nog een zin zeggen. Morgen atletiek — rustig blijven!', km:4 },
+        { type:'Herstel na atletiek', desc:'Na de atletiekles gisteren verdienen je benen rust. 30 min rustig wandelen. Geen hardlopen — actief herstel is slimmer dan doorzeulen.', km:0 },
+        { type:'Eerste 5 km', desc:'5 km rustig en in één keer. Neem de tijd, dit is je langste loop tot nu toe!', km:5 },
+      ]},
+      { w:3, sessions:[
+        { type:'Ritmeloop', desc:'4 km in een steady tempo. Focus op je looppas: kleine stappen, rechtop staan, armen ontspannen langs het lijf.', km:4 },
+        { type:'Loop-wandel intervals', desc:'Wissel 5 min hardlopen af met 1 min wandelen — doe dit 4 keer. Totaal ~24 min bewegen. Goed voor conditie zonder te overbelasten.', km:4 },
+        { type:'Rustige lange loop', desc:'6 km in praatstempo. Langste afstand tot nu toe — neem rustig de tijd en geniet van de route.', km:6 },
+      ]},
+      { w:4, sessions:[
+        { type:'Herstelloop', desc:'Korte 3 km, bewust langzamer dan normaal. Benen laten herstellen na 3 weken opbouwen. Niet forceren.', km:3 },
+        { type:'Herstel (herstelweek)', desc:'Herstelweek én na atletiek gisteren. Vandaag is écht een rustdag: 20 min wandelen mag, meer hoeft niet. Laat je spieren herstellen.', km:0 },
+        { type:'Rustige weekendloop', desc:'5 km makkelijk tempo. Geen records, gewoon lekker bewegen. Je hebt de eerste maand erop zitten!', km:5 },
+      ]},
+      { w:5, sessions:[
+        { type:'Comfortabele duurloop', desc:'5 km in een tempo waarbij je adem volledig in controle is. Niet te langzaam, maar ook niet buiten adem.', km:5 },
+        { type:'Korte intervals', desc:'Opwarmen 1 km rustig → 6 × 400m iets sneller dan normaal → 90 sec wandelen tussendoor → 1 km rustig afkoelen.', km:5 },
+        { type:'Lange loop praatstempo', desc:'7 km in rustig, gesprekstempo. Als je niet meer kunt praten, ga je te snel. Eerste echte "lange loop".', km:7 },
+      ]},
+      { w:6, sessions:[
+        { type:'Stabiele duurloop', desc:'5 km in een constant tempo van begin tot eind. Probeer de tweede helft niet langzamer te worden dan de eerste.', km:5 },
+        { type:'Tempoloop 20 min', desc:'Opwarmen 1 km → 20 min iets sneller lopen dan je normaal doet → 1 km afkoelen.', km:5 },
+        { type:'8 km — eerste echte lange loop', desc:'8 km rustig en gecontroleerd. Dit is een mijlpaal! Neem goed de tijd en drink iets voor vertrek.', km:8 },
+      ]},
+      { w:7, sessions:[
+        { type:'Onderhoudsduurloop', desc:'5 km makkelijk. Herstel van de lange loop van vorige week. Benen losmaken, niet pushen.', km:5 },
+        { type:'Middellange intervals', desc:'Opwarmen 1 km → 6 × 500m iets boven je comfortzone → 90 sec wandelpauze → 1 km afkoelen.', km:6 },
+        { type:'9 km doorlopen', desc:'9 km rustig. Blijf bewust langzaam — de verleiding om te versnellen is er, maar bewaar energie voor de tweede helft.', km:9 },
+      ]},
+      { w:8, sessions:[
+        { type:'Rustige herstelloop', desc:'4 km heel rustig. Na twee zware weken mag het lichaam bijkomen. Tempo is bijzaak.', km:4 },
+        { type:'Actief herstel na atletiek', desc:'Na atletiek gisteren: 30 min rustig zwemmen of wandelen. Jij bent nog aan het groeien — herstel is net zo belangrijk als training.', km:0 },
+        { type:'Gecontroleerde lange loop', desc:'8 km rustig — korter dan vorige week, bewust. Geniet van het feit dat 8 km al normaal voelt!', km:8 },
+      ]},
+      { w:9, sessions:[
+        { type:'Ritme opbouwen', desc:'6 km in een stabiel ritme. Probeer je tempo de hele loop gelijk te houden.', km:6 },
+        { type:'Tempoloop 25 min', desc:'Opwarmen 1 km → 25 min op comfortabel snel tempo → 1 km afkoelen.', km:6 },
+        { type:'10 km — eerste dubbele cijfers!', desc:'10 km rustig. Strategie: eerste 5 km bewust rustig, tweede helft mag iets sneller. Grote mijlpaal!', km:10 },
+      ]},
+      { w:10, sessions:[
+        { type:'Makkelijke duurloop', desc:'6 km rustig en ontspannen. Herstel van de 10 km van vorige week.', km:6 },
+        { type:'Kilometer-intervals', desc:'Opwarmen 1 km → 5 × 1 km iets sneller dan duurlooptempo → 2 min wandelpauze → 1 km afkoelen.', km:7 },
+        { type:'11 km — opbouwen', desc:'11 km in praatstempo. Je loopt nu afstanden die een paar weken geleden ondenkbaar waren.', km:11 },
+      ]},
+      { w:11, sessions:[
+        { type:'Rustige duurloop', desc:'6 km makkelijk. Benen losmaken, hoofd leeg. Geen druk.', km:6 },
+        { type:'Tempoloop 30 min', desc:'Opwarmen 1 km → 30 min op een tempo dat voelt als "stevig maar houdbaar" → 1 km afkoelen.', km:7 },
+        { type:'12 km — doorbijten!', desc:'12 km. De tweede helft wordt mentaal zwaarder — zet je favoriete muziek of podcast op en blijf consistent.', km:12 },
+      ]},
+      { w:12, sessions:[
+        { type:'Kort herstelloopje', desc:'5 km heel rustig. Geen tempo, geen druk. Benen bewegen, niets meer.', km:5 },
+        { type:'Rustdag na atletiek', desc:'Herstelweek + atletiek gisteren = vandaag echt uitrusten. 20 min wandelen is genoeg. Geen loopschoenen aan!', km:0 },
+        { type:'Gecontroleerde lange loop', desc:'10 km rustig. Iets korter dan vorige weken — dat is bewust. Klaar voor de volgende fase!', km:10 },
+      ]},
+      { w:13, sessions:[
+        { type:'Opbouwduurloop', desc:'7 km: eerste 2 km rustig opwarmen, daarna stabiel tempo aanhouden. Goed opwarmen is nu extra belangrijk.', km:7 },
+        { type:'Kilometer-intervals (zwaarder)', desc:'Opwarmen 1 km → 6 × 1 km op wedstrijdtempo-gevoel → 90 sec wandelen → 1 km afkoelen.', km:8 },
+        { type:'13 km — halve wedstrijdafstand', desc:'13 km in je beoogde wedstrijdtempo. Dit is de helft van de halve marathon — test hoe dat tempo voelt.', km:13 },
+      ]},
+      { w:14, sessions:[
+        { type:'Herstelduurloop', desc:'6 km rustig. Na de lange loop van vorige week rustig herstel. Benen mogen moe zijn.', km:6 },
+        { type:'Wedstrijdtempo 35 min', desc:'Opwarmen 1 km → 35 min op je gewenste wedstrijdtempo → 1 km afkoelen. Wen aan dit gevoel!', km:8 },
+        { type:'13 km herhalen', desc:'Nogmaals 13 km, maar rustiger dan vorige week. Focus op techniek en consistentie, niet op tijd.', km:13 },
+      ]},
+      { w:15, sessions:[
+        { type:'Stabiele duurloop', desc:'7 km in een gelijkmatig tempo. Geen versnellingen, gewoon lekker doorlopen.', km:7 },
+        { type:'Langere intervals', desc:'Opwarmen 1 km → 4 × 1,5 km iets boven wedstrijdtempo → 2 min wandelen → 1 km afkoelen.', km:8 },
+        { type:'15 km — langste loop tot nu toe!', desc:'15 km rustig en bewust. Dit is een nieuw record. Neem iets te drinken mee en loop niet te snel weg.', km:15 },
+      ]},
+      { w:16, sessions:[
+        { type:'Rustig adem halen', desc:'6 km heel rustig. Je hebt een zware fase achter de rug — dit is welverdiende rust.', km:6 },
+        { type:'Actief herstel na atletiek', desc:'Na atletiek gisteren: rustig zwemmen of wandelen, max 30 min. Je hebt een zware fase achter de rug — vandaag laad je op voor de laatste sprint naar de finish.', km:0 },
+        { type:'Rustige lange loop', desc:'12 km makkelijk tempo. Iets korter dan vorige weken — dat is bewust. Geniet van de route.', km:12 },
+      ]},
+      { w:17, sessions:[
+        { type:'Onderhoudsduurloop', desc:'7 km stabiel. Dit is nu je "normale" afstand voor doordeweekse lopen. Goed teken!', km:7 },
+        { type:'Wedstrijdtempo 40 min', desc:'Opwarmen 1 km → 40 min op je streeftempo voor de wedstrijd → 1 km afkoelen. Hoe voelt het?', km:9 },
+        { type:'14 km — grote opbouw', desc:'14 km rustig. Eet 2 uur van tevoren iets lichts. Loop de eerste 7 km bewust langzamer dan je wilt. Je bent nog jong — bewust opbouwen is slimmer dan te snel gaan.', km:14 },
+      ]},
+      { w:18, sessions:[
+        { type:'Herstelduurloop', desc:'7 km rustig. Na de 14 km van vorige week mag het tempo lager dan normaal. Luister naar je lichaam.', km:7 },
+        { type:'Snelheidsintervals', desc:'Opwarmen 1 km → 5 × 1 km snel (harder dan wedstrijdtempo) → 90 sec wandelen → 1 km afkoelen.', km:9 },
+        { type:'16 km — langste training ooit!', desc:'16 km. Dit is je piektraining. Voor jouw leeftijd is 16 km meer dan genoeg voorbereiding op de halve marathon. Loop de eerste 10 km heel rustig. Wees trots — dit is een grote prestatie!', km:16 },
+      ]},
+      { w:19, sessions:[
+        { type:'Herstel-prioriteit loop', desc:'7 km bewust langzamer dan normaal. Na de 16 km heeft je lichaam rust nodig — geef het die ruimte. Op jouw leeftijd is herstel minstens zo belangrijk als de training zelf.', km:7 },
+        { type:'Gematigde tempoloop', desc:'Opwarmen 1 km → 25 min tempo (niet maximaal, ca. 75% inspanning) → 1 km afkoelen.', km:7 },
+        { type:'15 km tempo bijhouden', desc:'15 km — iets minder dan vorige week. Probeer je gewenste wedstrijdtempo vol te houden. Je hebt nu atletiek + hardlopen in het pakket — dat is al heel wat!', km:15 },
+      ]},
+      { w:20, sessions:[
+        { type:'Verdiende rustloop', desc:'6 km rustig. Je bent door de zwaarste fase heen. Deze week is bedoeld om op te laden.', km:6 },
+        { type:'Herstelbewegen na atletiek', desc:'Na atletiek gisteren: 25 min wandelen of zwemmen. Lekker buiten zijn zonder te zweten. Je hebt de zwaarste fase erop zitten — genieten!', km:0 },
+        { type:'Genieten van 12 km', desc:'12 km makkelijk. Dit voelt nu bijna makkelijk na de 16 km van twee weken geleden. Geniet ervan!', km:12 },
+      ]},
+      { w:21, sessions:[
+        { type:'Onderhoudsduurloop', desc:'7 km stabiel. Terug in het ritme na de herstelweek. Loop rustig — zaterdag staat de grote proefloop gepland.', km:7 },
+        { type:'Benen losmaken', desc:'5 km heel rustig, bewust langzamer dan normaal. Geen intervals deze week — spaar je energie voor de proefloop zaterdag. Goed slapen vanavond!', km:5 },
+        { type:'🎯 Proefloop — Halve Marathon (21,1 km)', desc:'Dit is je generale repetitie voor Eindhoven! Loop precies zoals je de echte race wilt lopen: eerste 5 km bewust rustig, dan je eigen tempo vinden. Eet 2 uur van tevoren iets lichts, neem water mee. Noteer je tijd — zo weet je wat je kunt verwachten op 11 oktober. Wees trots: je loopt al een officiële halve marathon!', km:21.1 },
+      ]},
+      { w:22, sessions:[
+        { type:'Herstel na proefloop', desc:'Je benen zijn nog moe van de 21 km zaterdag — dat is normaal! 5 km heel rustig, meer wandelen dan lopen mag. Luister naar je lichaam.', km:5 },
+        { type:'Rustig terugkomen', desc:'Opwarmen 1 km → 15 min op wedstrijdtempo → 1 km afkoelen. Kort en scherp. Controleer of je benen weer fris aanvoelen.', km:5 },
+        { type:'10 km tapering start', desc:'10 km rustig. Bewust veel minder dan vorige week — je lichaam laadt nu op voor de echte race. Tapering werkt, vertrouw het.', km:10 },
+      ]},
+      { w:23, sessions:[
+        { type:'Korte onderhoudloop', desc:'5 km rustig. Volume neemt verder af. Je benen laden op. Niet in de stress schieten!', km:5 },
+        { type:'3 × 1 km gevoel houden', desc:'Opwarmen 1 km → 3 × 1 km op wedstrijdtempo → 2 min wandelen → 1 km afkoelen. Benen scherp houden.', km:6 },
+        { type:'12 km rustig taperen', desc:'12 km makkelijk tempo. Bijna klaar. Probeer te genieten van de langere afstand — nog maar 2 weken!', km:12 },
+      ]},
+      { w:24, sessions:[
+        { type:'Fris en kort', desc:'5 km heel rustig. Doel: benen los houden, hoofd helder. Niets bewijzen deze week.', km:5 },
+        { type:'Benen losmaken', desc:'20 min rustig joggen met 4 × 100m lichte versnelling. Fris en licht voelen — geen inspanning.', km:4 },
+        { type:'Laatste lange loop — 10 km', desc:'10 km rustig. Dit is de laatste langere training voor de wedstrijd. Geniet ervan en vertrouw je voorbereiding.', km:10 },
+      ]},
+      { w:25, sessions:[
+        { type:'Activatieloopje', desc:'15 min heel rustig joggen + 3 × 30 sec iets sneller. Alleen om de benen wakker te maken. Niet uitputten!', km:3 },
+        { type:'Volledige rust', desc:'Wandelen mag, hardlopen niet. Voeten omhoog, goed slapen, koolhydraten eten. Morgen is het zover!', km:0 },
+        { type:'🏅 HALVE MARATHON — 21,1 km · Eindhoven', desc:'Dit is waarvoor je 25 weken hebt gewerkt. Loop de eerste 5 km bewust rustig, tweede helft op gevoel. Geniet van elke kilometer — je hebt dit verdiend!', km:21.1 },
+      ]},
+    ]
+  },
+
+  // ───────────────────────────────────────────────────
+  // 2. HALVE MARATHON — VOLWASSENE BEGINNER
+  // ───────────────────────────────────────────────────
+  {
+    id: 'volwassene_hm',
+    icon: '🏃',
+    title: 'Halve Marathon',
+    subtitle: 'Volwassene',
+    desc: '25 weken van 0 naar 21 km. Opbouwend schema met 3 trainingen per week.',
+    distance: '21,1 km',
+    level: 'Beginner',
+    startDate: new Date('2026-04-21'),
+    raceLabel: '11 oktober 2026 · Eindhoven',
+    phases: [
+      { weeks:[1,2,3,4], name:'Fase 1 — Basis opbouwen' },
+      { weeks:[5,6,7,8], name:'Fase 2 — Uithoudingsvermogen' },
+      { weeks:[9,10,11,12], name:'Fase 3 — Langere lopen' },
+      { weeks:[13,14,15,16], name:'Fase 4 — Opbouw intensiteit' },
+      { weeks:[17,18,19,20], name:'Fase 5 — Piekmijlen' },
+      { weeks:[21], name:'Fase 6 — Proefloop halve marathon' },
+      { weeks:[22,23,24], name:'Fase 7 — Tapering & finetuning' },
+      { weeks:[25], name:'Wedstrijdweek — Eindhoven 11 oktober' },
+    ],
+    schema: [
+      { w:1, sessions:[
+        { type:'Rustige startloop', desc:'Loop 3 km in een tempo waarbij je nog gewoon kunt praten. Wandelen mag! Doel: bewegen zonder jezelf te forceren.', km:3 },
+        { type:'Crosstraining', desc:'30 min fietsen, zwemmen of stevig wandelen. Geen hardlopen — benen laten wennen aan regelmatige beweging.', km:0 },
+        { type:'Iets verder lopen', desc:'Zelfde rustige tempo als maandag, maar 1 km langer. Adem rustig, schouders ontspannen.', km:4 },
+      ]},
+      { w:2, sessions:[
+        { type:'Onderhoudsduurloop', desc:'4 km in rustig tempo. Probeer het hele stuk door te lopen zonder te wandelen. Tempo: je kunt nog een zin zeggen.', km:4 },
+        { type:'Crosstraining', desc:'40 min fietsen of wandelen. Actief bewegen zonder de loopbenen te belasten.', km:0 },
+        { type:'Eerste 5 km', desc:'5 km rustig en in één keer. Neem de tijd, dit is je langste loop tot nu toe!', km:5 },
+      ]},
+      { w:3, sessions:[
+        { type:'Ritmeloop', desc:'4 km in een steady tempo. Focus op je looppas: kleine stappen, rechtop staan, armen ontspannen langs het lijf.', km:4 },
+        { type:'Loop-wandel intervals', desc:'Wissel 5 min hardlopen af met 1 min wandelen — doe dit 4 keer. Totaal ~24 min bewegen.', km:4 },
+        { type:'Rustige lange loop', desc:'6 km in praatstempo. Langste afstand tot nu toe — neem rustig de tijd en geniet van de route.', km:6 },
+      ]},
+      { w:4, sessions:[
+        { type:'Herstelloop', desc:'Korte 3 km, bewust langzamer dan normaal. Benen laten herstellen na 3 weken opbouwen.', km:3 },
+        { type:'Crosstraining (herstel)', desc:'Lichte activiteit: 30 min wandelen of fietsen. Spieren laten bijkomen is het doel van deze week.', km:0 },
+        { type:'Rustige weekendloop', desc:'5 km makkelijk tempo. Geen records, gewoon lekker bewegen. Je hebt de eerste maand erop zitten!', km:5 },
+      ]},
+      { w:5, sessions:[
+        { type:'Comfortabele duurloop', desc:'5 km in een tempo waarbij je adem volledig in controle is.', km:5 },
+        { type:'Korte intervals', desc:'Opwarmen 1 km rustig → 6 × 400m iets sneller → 90 sec wandelen → 1 km afkoelen.', km:5 },
+        { type:'Lange loop praatstempo', desc:'7 km in rustig, gesprekstempo. Als je niet meer kunt praten, ga je te snel.', km:7 },
+      ]},
+      { w:6, sessions:[
+        { type:'Stabiele duurloop', desc:'5 km in een constant tempo van begin tot eind.', km:5 },
+        { type:'Tempoloop 20 min', desc:'Opwarmen 1 km → 20 min iets sneller lopen dan normaal → 1 km afkoelen.', km:5 },
+        { type:'8 km — eerste echte lange loop', desc:'8 km rustig en gecontroleerd. Dit is een mijlpaal! Drink iets voor vertrek.', km:8 },
+      ]},
+      { w:7, sessions:[
+        { type:'Onderhoudsduurloop', desc:'5 km makkelijk. Herstel van de lange loop van vorige week. Benen losmaken.', km:5 },
+        { type:'Middellange intervals', desc:'Opwarmen 1 km → 6 × 500m iets boven je comfortzone → 90 sec wandelpauze → 1 km afkoelen.', km:6 },
+        { type:'9 km doorlopen', desc:'9 km rustig. Blijf bewust langzaam — bewaar energie voor de tweede helft.', km:9 },
+      ]},
+      { w:8, sessions:[
+        { type:'Rustige herstelloop', desc:'4 km heel rustig. Na twee zware weken mag het lichaam bijkomen.', km:4 },
+        { type:'Crosstraining (actief herstel)', desc:'45 min fietsen of zwemmen. Bloed laten stromen zonder de loopspieren te belasten.', km:0 },
+        { type:'Gecontroleerde lange loop', desc:'8 km rustig — korter dan vorige week, bewust. 8 km voelt al normaal!', km:8 },
+      ]},
+      { w:9, sessions:[
+        { type:'Ritme opbouwen', desc:'6 km in een stabiel ritme. Probeer je tempo de hele loop gelijk te houden.', km:6 },
+        { type:'Tempoloop 25 min', desc:'Opwarmen 1 km → 25 min op comfortabel snel tempo → 1 km afkoelen.', km:6 },
+        { type:'10 km — eerste dubbele cijfers!', desc:'10 km rustig. Strategie: eerste 5 km bewust rustig, tweede helft mag iets sneller. Grote mijlpaal!', km:10 },
+      ]},
+      { w:10, sessions:[
+        { type:'Makkelijke duurloop', desc:'6 km rustig en ontspannen. Herstel van de 10 km van vorige week.', km:6 },
+        { type:'Kilometer-intervals', desc:'Opwarmen 1 km → 5 × 1 km iets sneller dan duurlooptempo → 2 min wandelpauze → 1 km afkoelen.', km:7 },
+        { type:'11 km — opbouwen', desc:'11 km in praatstempo. Je loopt nu afstanden die een paar weken geleden ondenkbaar waren.', km:11 },
+      ]},
+      { w:11, sessions:[
+        { type:'Rustige duurloop', desc:'6 km makkelijk. Benen losmaken, hoofd leeg. Geen druk.', km:6 },
+        { type:'Tempoloop 30 min', desc:'Opwarmen 1 km → 30 min op een tempo dat voelt als "stevig maar houdbaar" → 1 km afkoelen.', km:7 },
+        { type:'12 km — doorbijten!', desc:'12 km. De tweede helft wordt mentaal zwaarder — zet je favoriete muziek of podcast op en blijf consistent.', km:12 },
+      ]},
+      { w:12, sessions:[
+        { type:'Kort herstelloopje', desc:'5 km heel rustig. Geen tempo, geen druk.', km:5 },
+        { type:'Crosstraining (licht)', desc:'30 min wandelen of fietsen. Lichaam laten herstellen na drie intensieve weken.', km:0 },
+        { type:'Gecontroleerde lange loop', desc:'10 km rustig. Iets korter dan vorige weken — dat is bewust. Klaar voor de volgende fase!', km:10 },
+      ]},
+      { w:13, sessions:[
+        { type:'Opbouwduurloop', desc:'7 km: eerste 2 km rustig opwarmen, daarna stabiel tempo. Goed opwarmen is nu extra belangrijk.', km:7 },
+        { type:'Kilometer-intervals (zwaarder)', desc:'Opwarmen 1 km → 6 × 1 km op wedstrijdtempo-gevoel → 90 sec wandelen → 1 km afkoelen.', km:8 },
+        { type:'13 km — halve wedstrijdafstand', desc:'13 km in je beoogde wedstrijdtempo. Test hoe dat tempo voelt over die afstand.', km:13 },
+      ]},
+      { w:14, sessions:[
+        { type:'Herstelduurloop', desc:'6 km rustig. Na de lange loop van vorige week rustig herstel.', km:6 },
+        { type:'Wedstrijdtempo 35 min', desc:'Opwarmen 1 km → 35 min op je gewenste wedstrijdtempo → 1 km afkoelen. Wen aan dit gevoel!', km:8 },
+        { type:'13 km herhalen', desc:'Nogmaals 13 km, maar rustiger. Focus op techniek en consistentie, niet op tijd.', km:13 },
+      ]},
+      { w:15, sessions:[
+        { type:'Stabiele duurloop', desc:'7 km in een gelijkmatig tempo. Geen versnellingen, gewoon lekker doorlopen.', km:7 },
+        { type:'Langere intervals', desc:'Opwarmen 1 km → 4 × 1,5 km iets boven wedstrijdtempo → 2 min wandelen → 1 km afkoelen.', km:8 },
+        { type:'15 km — langste loop tot nu toe!', desc:'15 km rustig en bewust. Nieuw record! Neem iets te drinken mee en loop niet te snel weg.', km:15 },
+      ]},
+      { w:16, sessions:[
+        { type:'Rustig adem halen', desc:'6 km heel rustig. Je hebt een zware fase achter de rug.', km:6 },
+        { type:'Crosstraining (actief herstel)', desc:'45 min fietsen of zwemmen. Benen laten bijkomen voor de laatste grote fase.', km:0 },
+        { type:'Rustige lange loop', desc:'12 km makkelijk tempo. Bewust korter — klaar voor de piekfase.', km:12 },
+      ]},
+      { w:17, sessions:[
+        { type:'Onderhoudsduurloop', desc:'7 km stabiel. Dit is nu je "normale" afstand voor doordeweeks. Goed teken!', km:7 },
+        { type:'Wedstrijdtempo 40 min', desc:'Opwarmen 1 km → 40 min op je streeftempo voor de wedstrijd → 1 km afkoelen.', km:9 },
+        { type:'16 km — grote opbouw', desc:'16 km rustig. Eet 2 uur van tevoren iets lichts. Loop de eerste 8 km bewust langzamer dan je wilt.', km:16 },
+      ]},
+      { w:18, sessions:[
+        { type:'Herstelduurloop', desc:'7 km rustig. Na de 16 km van vorige week mag het tempo lager dan normaal. Luister naar je lichaam.', km:7 },
+        { type:'Snelheidsintervals', desc:'Opwarmen 1 km → 5 × 1 km snel (harder dan wedstrijdtempo) → 90 sec wandelen → 1 km afkoelen.', km:9 },
+        { type:'18 km — langste training ooit!', desc:'18 km. Dit is je piektraining. Loop de eerste 12 km heel rustig, dan mag je iets aantrekken. Trots zijn na afloop.', km:18 },
+      ]},
+      { w:19, sessions:[
+        { type:'Herstel-prioriteit loop', desc:'7 km bewust langzamer dan normaal. Na de 18 km heeft je lichaam rust nodig — geef het die ruimte.', km:7 },
+        { type:'Gematigde tempoloop', desc:'Opwarmen 1 km → 30 min tempo (niet maximaal, ca. 80% inspanning) → 1 km afkoelen.', km:8 },
+        { type:'17 km tempo bijhouden', desc:'17 km — iets minder dan vorige week. Probeer je gewenste wedstrijdtempo vol te houden de hele loop.', km:17 },
+      ]},
+      { w:20, sessions:[
+        { type:'Verdiende rustloop', desc:'6 km rustig. Je bent door de zwaarste fase heen. Deze week is bedoeld om op te laden.', km:6 },
+        { type:'Crosstraining (licht en fijn)', desc:'45 min fietsen, zwemmen of wandelen. Lekker buiten zijn, niet zweten.', km:0 },
+        { type:'Genieten van 14 km', desc:'14 km makkelijk. Dit voelt nu bijna makkelijk na de 18 km van twee weken geleden. Geniet ervan!', km:14 },
+      ]},
+      { w:21, sessions:[
+        { type:'Onderhoudsduurloop', desc:'7 km stabiel. Loop rustig — zaterdag staat de grote proefloop gepland.', km:7 },
+        { type:'Benen losmaken', desc:'5 km heel rustig. Geen intervals deze week — spaar je energie voor de proefloop zaterdag.', km:5 },
+        { type:'🎯 Proefloop — Halve Marathon (21,1 km)', desc:'Dit is je generale repetitie voor Eindhoven! Loop precies zoals je de echte race wilt lopen: eerste 5 km bewust rustig, dan je eigen tempo vinden. Eet 2 uur van tevoren iets lichts, neem water mee. Noteer je tijd — zo weet je wat je kunt verwachten op 11 oktober.', km:21.1 },
+      ]},
+      { w:22, sessions:[
+        { type:'Herstel na proefloop', desc:'Je benen zijn nog moe van de 21 km zaterdag — dat is normaal! 5 km heel rustig, wandelen mag. Luister naar je lichaam.', km:5 },
+        { type:'Rustig terugkomen', desc:'Opwarmen 1 km → 15 min op wedstrijdtempo → 1 km afkoelen. Kort en scherp.', km:5 },
+        { type:'10 km tapering start', desc:'10 km rustig. Bewust veel minder dan vorige week — je lichaam laadt op voor de echte race.', km:10 },
+      ]},
+      { w:23, sessions:[
+        { type:'Korte onderhoudloop', desc:'5 km rustig. Volume neemt verder af. Je benen laden op. Vertrouw het proces!', km:5 },
+        { type:'3 × 1 km gevoel houden', desc:'Opwarmen 1 km → 3 × 1 km op wedstrijdtempo → 2 min wandelen → 1 km afkoelen.', km:6 },
+        { type:'12 km rustig taperen', desc:'12 km makkelijk tempo. Nog maar 2 weken!', km:12 },
+      ]},
+      { w:24, sessions:[
+        { type:'Fris en kort', desc:'5 km heel rustig. Doel: benen los houden, hoofd helder. Niets bewijzen deze week.', km:5 },
+        { type:'Benen losmaken', desc:'20 min rustig joggen met 4 × 100m lichte versnelling. Fris en licht voelen.', km:4 },
+        { type:'Laatste lange loop — 10 km', desc:'10 km rustig. Dit is de laatste langere training voor de wedstrijd. Vertrouw je voorbereiding.', km:10 },
+      ]},
+      { w:25, sessions:[
+        { type:'Activatieloopje', desc:'15 min heel rustig joggen + 3 × 30 sec iets sneller. Alleen om de benen wakker te maken.', km:3 },
+        { type:'Volledige rust', desc:'Wandelen mag, hardlopen niet. Voeten omhoog, goed slapen, koolhydraten eten. Morgen is het zover!', km:0 },
+        { type:'🏅 HALVE MARATHON — 21,1 km · Eindhoven', desc:'Dit is waarvoor je 25 weken hebt gewerkt. Loop de eerste 5 km bewust rustig, tweede helft op gevoel. Geniet van elke kilometer!', km:21.1 },
+      ]},
+    ]
+  },
+
+  // ───────────────────────────────────────────────────
+  // 3. 10 KM BEGINNER — 12 weken
+  // ───────────────────────────────────────────────────
+  {
+    id: 'beginner_10k',
+    icon: '🎯',
+    title: '10 kilometer',
+    subtitle: 'Beginner',
+    desc: '12 weken schema om voor de eerste keer 10 km te lopen zonder te stoppen.',
+    distance: '10 km',
+    level: 'Beginner',
+    startDate: new Date('2026-07-13'),
+    raceLabel: 'Kies zelf je datum',
+    phases: [
+      { weeks:[1,2,3], name:'Fase 1 — Eerste stappen' },
+      { weeks:[4,5,6], name:'Fase 2 — Ritme opbouwen' },
+      { weeks:[7,8,9], name:'Fase 3 — Langere lopen' },
+      { weeks:[10,11], name:'Fase 4 — Tapering' },
+      { weeks:[12], name:'Wedstrijdweek' },
+    ],
+    schema: [
+      { w:1, sessions:[
+        { type:'Eerste loopje', desc:'Loop/wandel 3 km. Wissel 2 min lopen af met 1 min wandelen. Geen druk — je lichaam went aan de beweging.', km:3 },
+        { type:'Crosstraining', desc:'25 min fietsen of wandelen. Actief bewegen zonder de loopbenen te overbelasten.', km:0 },
+        { type:'Iets verder', desc:'4 km in hetzelfde loop/wandel-ritme. Probeer de loopstukken iets langer te maken dan dinsdag.', km:4 },
+      ]},
+      { w:2, sessions:[
+        { type:'Duurloop opbouwen', desc:'3 km — probeer zo weinig mogelijk te wandelen. Tempo: je kunt nog rustig praten.', km:3 },
+        { type:'Crosstraining', desc:'30 min fietsen of zwemmen.', km:0 },
+        { type:'4 km doorlopen', desc:'Probeer 4 km helemaal door te lopen zonder wandelpauze. Tempo is bijzaak.', km:4 },
+      ]},
+      { w:3, sessions:[
+        { type:'Rustige duurloop', desc:'3 km in een stabiel tempo. Focus op een gelijkmatige ademhaling.', km:3 },
+        { type:'Loop-wandel intervals', desc:'5 min lopen, 1 min wandelen — 5 keer. Je bouwt uithoudingsvermogen op zonder je te forceren.', km:4 },
+        { type:'5 km — eerste mijlpaal!', desc:'5 km in één keer doorlopen. Ga rustig van start — de tweede helft is altijd zwaarder mentaal.', km:5 },
+      ]},
+      { w:4, sessions:[
+        { type:'Herstelloop', desc:'3 km heel rustig. Bewust langzamer dan normaal. Herstelweek!', km:3 },
+        { type:'Crosstraining (herstel)', desc:'25 min wandelen of licht fietsen. Laat je spieren bijkomen.', km:0 },
+        { type:'4 km makkelijk', desc:'4 km in een prettig tempo. Geen druk, gewoon genieten van het lopen.', km:4 },
+      ]},
+      { w:5, sessions:[
+        { type:'Comfortabele duurloop', desc:'4 km in een tempo waarbij je ademhaling volledig in controle is.', km:4 },
+        { type:'Korte intervals', desc:'Opwarmen 1 km → 5 × 300m iets sneller dan normaal → 60 sec wandelen → 1 km afkoelen.', km:4 },
+        { type:'6 km — nieuwe afstand!', desc:'6 km rustig. Dit is je nieuwe langste afstand. Loop de eerste 3 km bewust langzaam.', km:6 },
+      ]},
+      { w:6, sessions:[
+        { type:'Onderhoudsduurloop', desc:'4 km stabiel. Ritme vinden en vasthouden.', km:4 },
+        { type:'Tempoloop 15 min', desc:'Opwarmen 1 km → 15 min iets sneller dan normaal → 1 km afkoelen.', km:4 },
+        { type:'7 km doorlopen', desc:'7 km rustig. Strategie: eerste 3,5 km bewust rustig, dan op gevoel verder.', km:7 },
+      ]},
+      { w:7, sessions:[
+        { type:'Duurloop 5 km', desc:'5 km in een stabiel tempo. 5 km voelt nu al anders dan in week 3 — goed teken!', km:5 },
+        { type:'Interval 400m', desc:'Opwarmen 1 km → 6 × 400m op een stevig tempo → 90 sec wandelen → 1 km afkoelen.', km:5 },
+        { type:'8 km — bijna op doel!', desc:'8 km rustig. Neem iets te drinken mee. Je bent al op 80% van je doel.', km:8 },
+      ]},
+      { w:8, sessions:[
+        { type:'Herstelloop', desc:'4 km heel rustig. Na de 8 km van vorige week verdienen je benen een dag licht bewegen.', km:4 },
+        { type:'Crosstraining (actief herstel)', desc:'30 min fietsen of zwemmen. Benen losmaken, geen hardlopen.', km:0 },
+        { type:'6 km gecontroleerd', desc:'6 km rustig — bewust korter dan vorige week. Herstelweek: laden voor de laatste fase.', km:6 },
+      ]},
+      { w:9, sessions:[
+        { type:'Sterke duurloop', desc:'5 km in een goed, stabiel tempo. Probeer de tweede helft net zo snel als de eerste.', km:5 },
+        { type:'Tempoloop 20 min', desc:'Opwarmen 1 km → 20 min op een stevig maar houdbaar tempo → 1 km afkoelen.', km:5 },
+        { type:'9 km — bijna!', desc:'9 km rustig. Eén kilometer onder het doel. Je kunt het — loop rustig en consistent.', km:9 },
+      ]},
+      { w:10, sessions:[
+        { type:'Herstelduurloop', desc:'5 km rustig. Na de 9 km van vorige week rustig herstellen.', km:5 },
+        { type:'Wedstrijdtempo 20 min', desc:'Opwarmen 1 km → 20 min op je gewenste wedstrijdtempo → 1 km afkoelen. Hoe voelt het?', km:5 },
+        { type:'Eerste keer 10 km!', desc:'10 km — je hebt het gehaald! Loop rustig, geniet van elke stap. Dit is je persoonlijk record!', km:10 },
+      ]},
+      { w:11, sessions:[
+        { type:'Tapering: kort en fris', desc:'4 km heel rustig. Volume gaat omlaag — je lichaam laadt op. Goed teken, niet slecht!', km:4 },
+        { type:'Wedstrijdtempo blokje', desc:'Opwarmen 1 km → 15 min op wedstrijdtempo → 1 km afkoelen. Fris voelen is het doel.', km:4 },
+        { type:'8 km rustiger', desc:'8 km makkelijk. Bewust minder dan twee weken geleden. Tapering werkt.', km:8 },
+      ]},
+      { w:12, sessions:[
+        { type:'Activatie', desc:'20 min heel rustig joggen + 3 × 30 sec iets sneller. Benen wakker maken, niet uitputten.', km:3 },
+        { type:'Volledige rust', desc:'Wandelen mag, lopen niet. Voeten omhoog, goed eten, goed slapen. Morgen is het zover!', km:0 },
+        { type:'🏅 10 km RACE — Jouw doel!', desc:'Dit is waarvoor je 12 weken hebt gewerkt. Loop de eerste 3 km bewust rustig en versneel daarna op gevoel. Geniet van elke kilometer — jij kunt dit!', km:10 },
+      ]},
+    ]
+  },
+
+  // ───────────────────────────────────────────────────
+  // 4. 5 KM BEGINNER — 8 weken
+  // ───────────────────────────────────────────────────
+  {
+    id: 'beginner_5k',
+    icon: '🌟',
+    title: '5 kilometer',
+    subtitle: 'Beginner',
+    desc: '8 weken van wandelen/lopen naar 5 km zonder stop. Perfect als eerste doel.',
+    distance: '5 km',
+    level: 'Beginner',
+    startDate: new Date('2026-08-17'),
+    raceLabel: 'Kies zelf je datum',
+    phases: [
+      { weeks:[1,2], name:'Fase 1 — Beginnen' },
+      { weeks:[3,4,5], name:'Fase 2 — Opbouwen' },
+      { weeks:[6,7], name:'Fase 3 — Doorzetten' },
+      { weeks:[8], name:'Wedstrijdweek' },
+    ],
+    schema: [
+      { w:1, sessions:[
+        { type:'Eerste stap', desc:'Wissel 1 min lopen af met 2 min wandelen — doe dit 8 keer (24 min totaal). Ga naar buiten en begin — dat is alles!', km:2 },
+        { type:'Wandeling', desc:'25 min stevig wandelen. Geen hardlopen vandaag — benen laten wennen.', km:0 },
+        { type:'Loop iets meer', desc:'Wissel 90 sec lopen af met 90 sec wandelen — 8 keer. Je loopstukken worden langer!', km:2.5 },
+      ]},
+      { w:2, sessions:[
+        { type:'Longer lopen', desc:'Wissel 2 min lopen af met 1 min wandelen — 8 keer. Probeer de loopstukken comfortabel te houden.', km:3 },
+        { type:'Actieve rust', desc:'25 min wandelen of licht fietsen. Bewegen zonder te zweten.', km:0 },
+        { type:'Eerste 3 km', desc:'Loop 3 km — mag met korte wandelpauzes. Tempo is bijzaak, aankomen is het doel.', km:3 },
+      ]},
+      { w:3, sessions:[
+        { type:'Duurloop poging', desc:'Probeer 3 km door te lopen zonder te wandelen. Ga langzamer dan je denkt dat nodig is.', km:3 },
+        { type:'Crosstraining', desc:'20 min fietsen of zwemmen.', km:0 },
+        { type:'3,5 km doorlopen', desc:'3,5 km in je eigen tempo. Probeer het zonder wandelpauze.', km:3.5 },
+      ]},
+      { w:4, sessions:[
+        { type:'Herstelweek: makkelijk', desc:'2,5 km heel rustig. Geen druk, gewoon lekker bewegen.', km:2.5 },
+        { type:'Wandeling', desc:'20 min wandelen. Herstelweek — spieren laten bijkomen.', km:0 },
+        { type:'3 km rustig', desc:'3 km in een comfortabel tempo. Bewust korter dan vorige week.', km:3 },
+      ]},
+      { w:5, sessions:[
+        { type:'Stabiele duurloop', desc:'3 km in een gelijkmatig tempo van begin tot eind. Adem rustig, schouders omlaag.', km:3 },
+        { type:'Interval lopen', desc:'Opwarmen 10 min rustig → 4 × 2 min iets sneller → 1 min wandelen → 10 min rustig afkoelen.', km:3 },
+        { type:'4 km — bijna!', desc:'4 km doorlopen. Nog één kilometer te gaan voor je doel! Loop rustig, geniet van de progressie.', km:4 },
+      ]},
+      { w:6, sessions:[
+        { type:'Comfortabele duurloop', desc:'3 km in een prettig, houdbaar tempo. Focus op je looppas en ademhaling.', km:3 },
+        { type:'Fartlek', desc:'20 min lopen waarbij je spontaan 30 sec versnelt als je je goed voelt, daarna weer rustig. Speels en vrij.', km:3 },
+        { type:'5 km — eerste keer!', desc:'5 km! Ga rustig van start, tweede helft op gevoel. Je hebt dit opgebouwd — vertrouw je benen.', km:5 },
+      ]},
+      { w:7, sessions:[
+        { type:'Tapering: lekker kort', desc:'2,5 km heel rustig. Volume gaat omlaag — je lichaam laadt op. Dit is goed, niet slecht.', km:2.5 },
+        { type:'Wedstrijdtempo blokje', desc:'10 min rustig opwarmen → 10 min op je gewenste tempo → 5 min afkoelen. Lekker fris voelen.', km:3 },
+        { type:'4 km rustig', desc:'4 km makkelijk. Bewust minder dan vorige week. Tapering werkt.', km:4 },
+      ]},
+      { w:8, sessions:[
+        { type:'Activatie', desc:'15 min heel rustig joggen. Benen wakker maken, niet vermoeid laten voelen. Morgen race!', km:2 },
+        { type:'Volledige rust', desc:'Wandelen mag, lopen niet. Goed eten, goed slapen. Leg je kleding al klaar. Je kunt dit!', km:0 },
+        { type:'🌟 5 km RACE — Jouw moment!', desc:'Dit is waarvoor je 8 weken hebt gewerkt. Loop de eerste km bewust rustig, dan op gevoel. Elke stap is een overwinning. Geniet ervan!', km:5 },
+      ]},
+    ]
+  },
+
+];
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let activeProfile = null;
+let activeSession = null;
+let watchId = null;
+let trackInterval = null;
+let startTime = null;
+let totalDist = 0;
+let lastPos = null;
+let currentRunName = 'Vrije loop';
+let currentRunTarget = 0;
+
+// ═══════════════════════════════════════════════════════
+// PROFIEL SELECTIE
+// ═══════════════════════════════════════════════════════
+function renderProfileScreen() {
+  const hmProfiles = PROFILES.filter(p => p.distance === '21,1 km');
+  const shortProfiles = PROFILES.filter(p => p.distance !== '21,1 km');
+
+  document.getElementById('grid-hm').innerHTML = hmProfiles.map(p => profileCardHTML(p)).join('');
+  document.getElementById('grid-short').innerHTML = shortProfiles.map(p => profileCardHTML(p)).join('');
+}
+
+function profileCardHTML(p) {
+  return `
+    <div class="profile-card" onclick="loadProfile('${p.id}')">
+      <div class="pc-icon">${p.icon}</div>
+      <div class="pc-title">${p.title}</div>
+      <div class="pc-sub">${p.subtitle}</div>
+      <div class="pc-tags">
+        <span class="pc-tag">${p.distance}</span>
+        <span class="pc-tag">${p.phases.reduce((a,ph) => a + ph.weeks.length, 0)} wkn</span>
+        <span class="pc-tag">${p.level}</span>
+      </div>
+      <div class="pc-desc">${p.desc}</div>
+    </div>
+  `;
+}
+
+function showProfileScreen() {
+  document.getElementById('profile-screen').classList.add('active');
+  document.getElementById('main-app').style.display = 'none';
+}
+
+function loadProfile(id) {
+  activeProfile = PROFILES.find(p => p.id === id);
+  if (!activeProfile) return;
+  localStorage.setItem('activeProfileId', id);
+
+  // Header bijwerken
+  document.getElementById('header-eyebrow').textContent = `${activeProfile.distance} · ${activeProfile.raceLabel}`;
+  document.getElementById('header-profile-name').textContent = `${activeProfile.icon} ${activeProfile.title} — ${activeProfile.subtitle}`;
+
+  // Progress-bar weekslabels
+  const totalWeeks = activeProfile.phases.reduce((a, ph) => a + ph.weeks.length, 0);
+  const mid = Math.ceil(totalWeeks / 2);
+  document.getElementById('progress-weeks-labels').innerHTML =
+    `<span>Week 1</span><span>Week ${mid}</span><span>Week ${totalWeeks}</span>`;
+
+  // Scherm wisselen
+  document.getElementById('profile-screen').classList.remove('active');
+  document.getElementById('main-app').style.display = 'block';
+
+  renderSchema();
+}
+
+// ═══════════════════════════════════════════════════════
+// LOCALSTORAGE HELPERS (per profiel)
+// ═══════════════════════════════════════════════════════
+function pid() { return activeProfile ? activeProfile.id : 'default'; }
+
+function getSessionDates() {
+  return JSON.parse(localStorage.getItem(`sessionDates_${pid()}`) || '{}');
+}
+function saveSessionDatesToStorage(dates) {
+  localStorage.setItem(`sessionDates_${pid()}`, JSON.stringify(dates));
+}
+function getCompletedSessions() {
+  return JSON.parse(localStorage.getItem(`completedSessions_${pid()}`) || '[]');
+}
+function getHistory() {
+  return JSON.parse(localStorage.getItem('runHistory') || '[]');
+}
+
+function getDefaultDate(week, sessionIdx) {
+  const dayOffsets = [0, 2, 5];
+  const start = activeProfile.startDate;
+  const weekStart = new Date(start.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000);
+  const d = new Date(weekStart.getTime() + dayOffsets[sessionIdx] * 24 * 60 * 60 * 1000);
+  return d.toISOString().split('T')[0];
+}
+
+function getCurrentWeek() {
+  const now = new Date();
+  const diff = now - activeProfile.startDate;
+  const totalWeeks = activeProfile.phases.reduce((a, ph) => a + ph.weeks.length, 0);
+  const week = Math.floor(diff / (7 * 24 * 60 * 60 * 1000)) + 1;
+  return Math.max(1, Math.min(week, totalWeeks));
+}
+
+function saveSessionDate() {
+  if (!activeSession) return;
+  const key = `${activeSession.week}-${activeSession.sessionIdx}`;
+  const val = document.getElementById('session-date-input').value;
+  const dates = getSessionDates();
+  dates[key] = val;
+  saveSessionDatesToStorage(dates);
+}
+
+function markSessionDone() {
+  if (!activeSession) return;
+  const key = `${activeSession.week}-${activeSession.sessionIdx}`;
+  const completed = getCompletedSessions();
+  if (!completed.includes(key)) {
+    completed.push(key);
+    localStorage.setItem(`completedSessions_${pid()}`, JSON.stringify(completed));
+  }
+  closeModal();
+  renderSchema();
+}
+
+// ═══════════════════════════════════════════════════════
+// SCHEMA RENDERING
+// ═══════════════════════════════════════════════════════
+function renderSchema() {
+  if (!activeProfile) return;
+  const container = document.getElementById('weeks-container');
+  const completed = getCompletedSessions();
+  const currentWeek = getCurrentWeek();
+  const schema = activeProfile.schema;
+  const phases = activeProfile.phases;
+  const totalSessions = schema.reduce((a, w) => a + w.sessions.length, 0);
+  const completedCount = completed.length;
+  const progressPct = (completedCount / totalSessions) * 100;
+
+  document.getElementById('progress-text').textContent = `${completedCount} van ${totalSessions} trainingen voltooid`;
+  document.getElementById('progress-fill').style.width = Math.max(2, progressPct) + '%';
+
+  container.innerHTML = '';
+
+  schema.forEach(week => {
+    const w = week.w;
+    const isCurrent = w === currentWeek;
+    const isDone = w < currentWeek;
+
+    const block = document.createElement('div');
+    block.className = `week-block${isCurrent ? ' current' : ''}${isDone ? ' done' : ''}`;
+
+    const phaseLabel = phases.find(p => p.weeks.includes(w))?.name || '';
+    const weekDate = new Date(activeProfile.startDate.getTime() + (w - 1) * 7 * 24 * 60 * 60 * 1000);
+    const dateStr = weekDate.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+
+    block.innerHTML = `
+      <div class="week-header" onclick="toggleWeek(${w})">
+        <div>
+          <div class="week-label">Week ${w} · ${dateStr}</div>
+          <div class="week-title">${phaseLabel}</div>
+        </div>
+        <div class="week-badge">${isDone ? '✓ klaar' : isCurrent ? 'Nu' : ''}</div>
+      </div>
+      <div class="week-sessions${isCurrent ? ' open' : ''}" id="week-sessions-${w}">
+        ${week.sessions.map((s, i) => {
+          const key = `${w}-${i}`;
+          const isComp = completed.includes(key);
+          const dayLabels = ['Maandag', 'Woensdag', 'Zaterdag'];
+          const dates = getSessionDates();
+          const dateVal = dates[key] || getDefaultDate(w, i);
+          const dateDisplay = new Date(dateVal + 'T12:00:00').toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' });
+          return `<div class="session-card${isComp ? ' completed' : ''}" onclick="openSessionModal(${w}, ${i})">
+            <div class="session-card-top">
+              <div>
+                <div style="font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px">${dayLabels[i] || 'Training ' + (i + 1)} ${isComp ? '· ✓ voltooid' : ''}</div>
+                <div class="session-type">${s.type}</div>
+                <div class="session-planned-date">📅 ${dateDisplay}</div>
+              </div>
+              ${s.km > 0 ? `<div class="session-dist">${s.km}<span>km</span></div>` : '<div style="font-size:11px;color:var(--muted);white-space:nowrap;padding-top:14px">rust</div>'}
+            </div>
+            <div class="session-desc">${s.desc}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    `;
+    container.appendChild(block);
+  });
+}
+
+function toggleWeek(w) {
+  const el = document.getElementById(`week-sessions-${w}`);
+  el.classList.toggle('open');
+}
+
+// ═══════════════════════════════════════════════════════
+// SESSION MODAL
+// ═══════════════════════════════════════════════════════
+function openSessionModal(week, sessionIdx) {
+  if (!activeProfile) return;
+  const s = activeProfile.schema.find(x => x.w === week).sessions[sessionIdx];
+  activeSession = { week, sessionIdx, session: s };
+  document.getElementById('modal-title').textContent = s.type;
+  document.getElementById('modal-desc').innerHTML =
+    `${s.desc}${s.km > 0 ? `<br><br><strong>${s.km} km</strong> doelafstand` : ''}`;
+  const key = `${week}-${sessionIdx}`;
+  const dates = getSessionDates();
+  document.getElementById('session-date-input').value = dates[key] || getDefaultDate(week, sessionIdx);
+  document.getElementById('session-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('session-modal').classList.remove('open');
+}
+
+function launchSessionTracker() {
+  closeModal();
+  if (activeSession) {
+    currentRunName = `W${activeSession.week} · ${activeSession.session.type}`;
+    currentRunTarget = activeSession.session.km;
+    document.getElementById('session-start-name').textContent = currentRunName;
+    document.getElementById('session-start-target').textContent =
+      currentRunTarget > 0 ? `Doel: ${currentRunTarget} km` : '';
+    document.getElementById('session-start-section').style.display = 'block';
+    document.getElementById('free-run-btn').style.display = 'none';
+  }
+  showTab('tracker');
+}
+
+function startSessionRun() {
+  document.getElementById('session-start-section').style.display = 'none';
+  document.getElementById('free-run-btn').style.display = 'block';
+  startRun();
+}
+
+// ═══════════════════════════════════════════════════════
+// SCHERMVERGRENDELING
+// ═══════════════════════════════════════════════════════
+let unlockTimer = null;
+
+function lockScreen() {
+  if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(() => {});
+  document.getElementById('lock-screen').classList.add('active');
+  updateLockScreen();
+}
+
+function updateLockScreen() {
+  document.getElementById('lock-dist').textContent = document.getElementById('live-dist').textContent;
+  document.getElementById('lock-time').textContent = document.getElementById('live-time').textContent;
+  document.getElementById('lock-pace').textContent = document.getElementById('live-pace').textContent;
+}
+
+function startUnlock() {
+  const btn = document.getElementById('lock-btn');
+  btn.classList.add('filling');
+  unlockTimer = setTimeout(() => {
+    document.getElementById('lock-screen').classList.remove('active');
+    btn.classList.remove('filling');
+  }, 3000);
+}
+
+function cancelUnlock() {
+  clearTimeout(unlockTimer);
+  document.getElementById('lock-btn').classList.remove('filling');
+}
+
+setInterval(() => {
+  if (document.getElementById('lock-screen').classList.contains('active')) updateLockScreen();
+}, 1000);
+
+// ═══════════════════════════════════════════════════════
+// GPS TRACKER
+// ═══════════════════════════════════════════════════════
+function initGPS() {
+  if (!navigator.geolocation) {
+    document.getElementById('gps-status').textContent = 'GPS niet beschikbaar op dit apparaat';
+    return;
+  }
+  navigator.geolocation.watchPosition(
+    () => {
+      document.getElementById('gps-dot').classList.add('locked');
+      document.getElementById('gps-status').textContent = 'GPS vergrendeld ✓';
+    },
+    () => {
+      document.getElementById('gps-status').textContent = 'GPS toestemming nodig — sta toegang toe';
+    },
+    { enableHighAccuracy: true }
+  );
+}
+
+function startFreeRun() {
+  currentRunName = 'Vrije loop';
+  currentRunTarget = 0;
+  startRun();
+}
+
+function startRun() {
+  totalDist = 0;
+  lastPos = null;
+  startTime = Date.now();
+  setTrackerView('active');
+  document.getElementById('live-target').textContent = currentRunTarget > 0 ? currentRunTarget : '—';
+  trackInterval = setInterval(updateTimer, 1000);
+  watchId = navigator.geolocation.watchPosition(
+    onGPSUpdate,
+    err => console.warn('GPS error:', err),
+    { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
+  );
+}
+
+function onGPSUpdate(pos) {
+  if (lastPos) {
+    const d = haversine(
+      lastPos.coords.latitude, lastPos.coords.longitude,
+      pos.coords.latitude, pos.coords.longitude
+    );
+    if (d > 0.003) {
+      totalDist += d;
+      document.getElementById('live-dist').textContent = totalDist.toFixed(2);
+      document.getElementById('live-speed').textContent = (pos.coords.speed * 3.6 || 0).toFixed(1);
+      updatePace();
+    }
+  }
+  lastPos = pos;
+}
+
+function updateTimer() {
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  document.getElementById('live-time').textContent = formatTime(elapsed);
+  updatePace();
+}
+
+function updatePace() {
+  const elapsed = (Date.now() - startTime) / 1000 / 60;
+  if (totalDist > 0.1) {
+    const paceMin = elapsed / totalDist;
+    const mins = Math.floor(paceMin);
+    const secs = Math.round((paceMin - mins) * 60);
+    document.getElementById('live-pace').textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+  }
+}
+
+function stopRun() {
+  clearInterval(trackInterval);
+  navigator.geolocation.clearWatch(watchId);
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  document.getElementById('done-dist').textContent = totalDist.toFixed(2);
+  document.getElementById('done-time').textContent = formatTime(elapsed);
+  if (totalDist > 0.1) {
+    const paceMin = (elapsed / 60) / totalDist;
+    const mins = Math.floor(paceMin);
+    const secs = Math.round((paceMin - mins) * 60);
+    document.getElementById('done-pace').textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+  } else {
+    document.getElementById('done-pace').textContent = '--:--';
+  }
+  setTrackerView('done');
+}
+
+function saveRun() {
+  const elapsed = document.getElementById('done-time').textContent;
+  const dist = parseFloat(document.getElementById('done-dist').textContent);
+  const pace = document.getElementById('done-pace').textContent;
+  const history = getHistory();
+  history.unshift({
+    name: currentRunName,
+    date: new Date().toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' }),
+    dist: dist.toFixed(2),
+    time: elapsed,
+    pace,
+    profile: activeProfile ? activeProfile.id : null
+  });
+  localStorage.setItem('runHistory', JSON.stringify(history));
+  if (activeSession) {
+    const completed = getCompletedSessions();
+    const key = `${activeSession.week}-${activeSession.sessionIdx}`;
+    if (!completed.includes(key)) {
+      completed.push(key);
+      localStorage.setItem(`completedSessions_${pid()}`, JSON.stringify(completed));
+    }
+    activeSession = null;
+  }
+  resetTracker();
+  showTab('history');
+  renderHistory();
+}
+
+function resetTracker() {
+  setTrackerView('idle');
+  totalDist = 0;
+  currentRunName = 'Vrije loop';
+  currentRunTarget = 0;
+  document.getElementById('session-start-section').style.display = 'none';
+  document.getElementById('free-run-btn').style.display = 'block';
+}
+
+function setTrackerView(state) {
+  document.getElementById('tracker-idle').className = `tracker-idle${state === 'idle' ? ' visible' : ''}`;
+  document.getElementById('tracker-active').className = `tracker-active${state === 'active' ? ' visible' : ''}`;
+  document.getElementById('tracker-done').className = `tracker-done${state === 'done' ? ' visible' : ''}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════════════════════
+function renderHistory() {
+  const history = getHistory();
+  const el = document.getElementById('history-list');
+  if (history.length === 0) {
+    el.innerHTML = `<div class="history-empty">Nog geen trainingen opgeslagen.<br>Start je eerste loop! 🏃</div>`;
+    return;
+  }
+  el.innerHTML = history.map(r => `
+    <div class="history-item">
+      <div>
+        <div class="hi-date">${r.date} · ${r.time} · tempo ${r.pace}/km</div>
+        <div class="hi-name">${r.name}</div>
+      </div>
+      <div class="hi-dist">${r.dist}<span>km</span></div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatTime(secs) {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function showTab(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${id}`).classList.add('active');
+  const idx = ['schema', 'tracker', 'history'].indexOf(id);
+  document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+  if (id === 'history') renderHistory();
+  if (id === 'schema') renderSchema();
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+renderProfileScreen();
+
+const savedProfileId = localStorage.getItem('activeProfileId');
+if (savedProfileId && PROFILES.find(p => p.id === savedProfileId)) {
+  loadProfile(savedProfileId);
+} else {
+  showProfileScreen();
+}
+
+initGPS();
+</script>
+</body>
+</html>
