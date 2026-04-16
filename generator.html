@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Schema Generator — Trainen met een doel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1f2730;
+  --border: #556070; --accent: #4ade80; --accent2: #86efac;
+  --warn: #fbbf24; --danger: #f87171; --text: #ffffff; --muted: #8b949e;
+  --mono: 'DM Mono', monospace; --serif: 'Fraunces', serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--text); font-family: var(--mono); overflow-x: hidden; }
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: linear-gradient(rgba(74,222,128,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── WIZARD STEPS ── */
+.step {
+  position: fixed; inset: 0; overflow-y: auto; z-index: 10;
+  background: var(--bg); padding-bottom: 80px;
+  transition: transform 0.32s cubic-bezier(.4,0,.2,1), opacity 0.32s ease;
+}
+.step.slide-out-left  { transform: translateX(-100%); opacity: 0; pointer-events: none; }
+.step.slide-out-right { transform: translateX( 100%); opacity: 0; pointer-events: none; }
+.step.hidden          { display: none; }
+
+.step-inner { max-width: 480px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 1; }
+
+.step-eyebrow { font-size: 10px; letter-spacing: 0.25em; color: var(--accent); text-transform: uppercase; margin-bottom: 6px; }
+.step-title { font-family: var(--serif); font-size: 28px; font-weight: 700; line-height: 1.2; margin-bottom: 6px; }
+.step-title em { font-style: italic; color: var(--accent); }
+.step-sub { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 28px; }
+
+/* progress dots */
+.step-progress { display: flex; gap: 6px; padding: 24px 0 20px; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); transition: background .3s, width .3s; }
+.dot.active { background: var(--accent); width: 18px; border-radius: 99px; }
+.dot.done { background: var(--accent2); }
+
+/* back button */
+.btn-back {
+  background: none; border: none; color: var(--muted); font-family: var(--mono);
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  cursor: pointer; padding: 0; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;
+}
+.btn-back:hover { color: var(--text); }
+
+/* ── CHOICE CARDS ── */
+.card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+.card-grid.single-col { grid-template-columns: 1fr; }
+
+.choice-card {
+  background: var(--surface); border: 2px solid var(--border);
+  border-radius: 16px; padding: 18px 14px; cursor: pointer;
+  transition: border-color .2s, background .2s, transform .1s;
+  display: flex; flex-direction: column; gap: 5px;
+  -webkit-tap-highlight-color: transparent;
+}
+.choice-card:hover { border-color: var(--accent); background: rgba(74,222,128,.05); }
+.choice-card:active { transform: scale(.97); }
+.choice-card.selected { border-color: var(--accent); background: rgba(74,222,128,.08); }
+.choice-card.selected .cc-title { color: var(--accent); }
+
+.cc-icon { font-size: 28px; margin-bottom: 4px; }
+.cc-title { font-family: var(--serif); font-size: 16px; font-weight: 700; line-height: 1.2; }
+.cc-sub { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.cc-tag { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 99px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); margin-top: 4px; letter-spacing: .05em; }
+
+/* ── DISTANCE BUTTONS ── */
+.dist-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.dist-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 14px; cursor: pointer;
+  font-family: var(--mono); font-size: 13px; color: var(--muted);
+  transition: all .2s; -webkit-tap-highlight-color: transparent;
+}
+.dist-btn:hover { border-color: var(--accent); color: var(--text); }
+.dist-btn.selected { border-color: var(--accent); background: rgba(74,222,128,.08); color: var(--accent); font-weight: 500; }
+
+/* ── FORM ELEMENTS ── */
+.form-block { margin-bottom: 22px; }
+.form-label { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.form-input {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; color: var(--text);
+  font-family: var(--mono); font-size: 15px; outline: none; transition: border-color .2s;
+}
+.form-input:focus { border-color: var(--accent); }
+.form-row { display: flex; gap: 10px; }
+.form-row .form-block { flex: 1; }
+
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; margin-bottom: 12px; }
+.toggle-row span { font-size: 13px; color: var(--text); }
+.toggle { width: 40px; height: 22px; background: var(--border); border-radius: 99px; position: relative; transition: background .2s; flex-shrink: 0; }
+.toggle.on { background: var(--accent); }
+.toggle::after { content: ''; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .2s; }
+.toggle.on::after { left: 21px; }
+
+.slider-wrap { margin-bottom: 4px; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.slider-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 4px; }
+.slider-value { font-family: var(--serif); font-size: 32px; font-weight: 700; color: var(--accent); text-align: center; margin: 8px 0 2px; }
+.slider-unit { text-align: center; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 12px; }
+
+/* number row for days/week */
+.num-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.num-btn {
+  flex: 1; min-width: 40px; padding: 12px 4px; text-align: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  cursor: pointer; font-family: var(--mono); font-size: 16px; color: var(--muted);
+  transition: all .2s;
+}
+.num-btn:hover { border-color: var(--accent); color: var(--text); }
+.num-btn.selected { border-color: var(--accent); background: rgba(74,222,128,.08); color: var(--accent); font-weight: 500; }
+
+/* CTA button */
+.btn-cta {
+  display: block; width: 100%; padding: 18px; border-radius: 14px; border: none;
+  font-family: var(--mono); font-size: 13px; letter-spacing: .1em; text-transform: uppercase;
+  cursor: pointer; transition: all .2s; background: var(--accent); color: #0d1117; font-weight: 500;
+  margin-top: 8px;
+}
+.btn-cta:hover { background: var(--accent2); }
+.btn-cta:disabled { opacity: .4; cursor: not-allowed; background: var(--border); color: var(--muted); }
+
+.btn-outline {
+  display: block; width: 100%; padding: 14px; border-radius: 12px;
+  border: 1px solid var(--border); background: none; color: var(--muted);
+  font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+  cursor: pointer; transition: all .2s; margin-top: 10px;
+}
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+.info-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+.info-box strong { color: var(--accent); }
+.warn-box { background: rgba(251,191,36,.05); border: 1px solid var(--warn); border-radius: 10px; padding: 12px 14px; font-size: 12px; color: var(--warn); line-height: 1.6; margin-bottom: 16px; }
+
+/* ── SCHEDULE VIEW ── */
+#schedule-view { display: none; max-width: 480px; margin: 0 auto; padding: 0 0 80px; position: relative; z-index: 1; }
+#schedule-view.visible { display: block; }
+
+.sv-header { padding: 20px 20px 14px; border-bottom: 1px solid var(--border); }
+.sv-eyebrow { font-size: 10px; letter-spacing: .2em; color: var(--accent); text-transform: uppercase; margin-bottom: 4px; }
+.sv-header h1 { font-family: var(--serif); font-size: 24px; font-weight: 700; line-height: 1.15; }
+.sv-header h1 em { font-style: italic; color: var(--accent); }
+.sv-header .sv-sub { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+.btn-restart { background: none; border: 1px solid var(--border); color: var(--muted); font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 4px 10px; border-radius: 99px; cursor: pointer; margin-top: 10px; transition: all .2s; }
+.btn-restart:hover { border-color: var(--danger); color: var(--danger); }
+
+.stats-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 16px 20px 0; }
+.stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; text-align: center; }
+.stat-val { font-family: var(--serif); font-size: 22px; font-weight: 700; color: var(--accent); }
+.stat-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-top: 3px; }
+
+.tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; z-index: 10; }
+.tab-btn { flex: 1; padding: 14px 8px; background: none; border: none; color: var(--muted); font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer; border-bottom: 2px solid transparent; transition: all .2s; }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel { display: none; padding: 20px; }
+.panel.active { display: block; }
+
+.progress-bar-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 20px; }
+.progress-bar-wrap .pb-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+.progress-bar-wrap .pb-label strong { color: var(--accent); }
+.progress-track { height: 6px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 99px; transition: width .5s ease; }
+.progress-weeks { display: flex; justify-content: space-between; margin-top: 6px; font-size: 10px; color: var(--muted); opacity: .6; }
+
+.week-block { border: 1px solid var(--border); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+.week-block.current { border-color: var(--accent); }
+.week-block.done { opacity: .6; }
+.week-block.recovery { border-style: dashed; }
+
+.week-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--surface); cursor: pointer; }
+.week-label-small { font-size: 11px; letter-spacing: .1em; color: var(--muted); text-transform: uppercase; }
+.week-title-text { font-family: var(--serif); font-size: 15px; color: var(--text); margin-top: 2px; }
+.week-badge { font-size: 10px; padding: 3px 8px; border-radius: 99px; background: var(--surface2); color: var(--muted); border: 1px solid var(--border); white-space: nowrap; flex-shrink: 0; }
+.week-block.current .week-badge { background: rgba(74,222,128,.1); color: var(--accent); border-color: var(--accent); }
+.week-block.recovery .week-badge { background: rgba(251,191,36,.08); color: var(--warn); border-color: var(--warn); }
+
+.week-sessions { display: none; padding: 12px; gap: 8px; flex-direction: column; }
+.week-sessions.open { display: flex; }
+
+.session-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.session-card.completed { border-color: var(--accent); background: rgba(74,222,128,.05); }
+.session-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.session-day { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
+.session-name { font-size: 13px; font-weight: 500; color: var(--text); line-height: 1.3; }
+.session-volume { font-family: var(--serif); font-size: 20px; font-weight: 700; color: var(--accent2); white-space: nowrap; flex-shrink: 0; text-align: right; line-height: 1; }
+.session-volume span { display: block; font-size: 10px; color: var(--muted); font-family: var(--mono); }
+.session-desc { font-size: 12px; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--border); padding-top: 8px; }
+.session-tag { display: inline-block; font-size: 9px; padding: 1px 6px; border-radius: 99px; margin-right: 4px; margin-bottom: 4px; }
+.tag-easy { background: rgba(74,222,128,.1); color: var(--accent); border: 1px solid rgba(74,222,128,.3); }
+.tag-quality { background: rgba(251,191,36,.1); color: var(--warn); border: 1px solid rgba(251,191,36,.3); }
+.tag-long { background: rgba(134,239,172,.1); color: var(--accent2); border: 1px solid rgba(134,239,172,.3); }
+.tag-race { background: rgba(248,113,113,.1); color: var(--danger); border: 1px solid rgba(248,113,113,.3); }
+.tag-rest { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+
+/* loading */
+.loading-screen { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; gap: 20px; }
+.loading-screen.hidden { display: none; }
+.loading-dots { display: flex; gap: 8px; }
+.loading-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: bounce 1.2s infinite; }
+.loading-dot:nth-child(2) { animation-delay: .2s; }
+.loading-dot:nth-child(3) { animation-delay: .4s; }
+@keyframes bounce { 0%,80%,100%{transform:scale(0.6);opacity:.5} 40%{transform:scale(1);opacity:1} }
+.loading-text { font-size: 13px; color: var(--muted); letter-spacing: .05em; }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-screen hidden" id="loading-screen">
+  <div style="font-family:var(--serif);font-size:22px;font-weight:700;color:var(--text)">Schema genereren<em style="color:var(--accent)">…</em></div>
+  <div class="loading-dots"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div>
+  <div class="loading-text" id="loading-text">Trainingsprincipes toepassen…</div>
+</div>
+
+<!-- ── STEP 1: SPORT ── -->
+<div class="step" id="step-1">
+  <div class="step-inner">
+    <div class="step-progress" id="prog-1"></div>
+    <div class="step-eyebrow">Trainen met een doel</div>
+    <h2 class="step-title">Welke sport wil<br>je <em>trainen?</em></h2>
+    <p class="step-sub">Kies één of meer sporten. Je kunt altijd een combinatieschema aanvragen.</p>
+
+    <div class="card-grid" id="sport-grid">
+      <div class="choice-card" data-sport="running" onclick="toggleSport('running', this)">
+        <div class="cc-icon">🏃</div>
+        <div class="cc-title">Hardlopen</div>
+        <div class="cc-sub">Van 5 km tot marathon</div>
+        <span class="cc-tag">Impactsport</span>
+      </div>
+      <div class="choice-card" data-sport="cycling" onclick="toggleSport('cycling', this)">
+        <div class="cc-icon">🚴</div>
+        <div class="cc-title">Fietsen</div>
+        <div class="cc-sub">Racefiets, MTB of triathlon</div>
+        <span class="cc-tag">Low impact</span>
+      </div>
+      <div class="choice-card" data-sport="swimming" onclick="toggleSport('swimming', this)">
+        <div class="cc-icon">🏊</div>
+        <div class="cc-title">Zwemmen</div>
+        <div class="cc-sub">Bad of open water</div>
+        <span class="cc-tag">Full body</span>
+      </div>
+      <div class="choice-card" data-sport="triathlon" onclick="toggleSport('triathlon', this)">
+        <div class="cc-icon">🔱</div>
+        <div class="cc-title">Triathlon</div>
+        <div class="cc-sub">Zwemmen + fietsen + lopen</div>
+        <span class="cc-tag">Combinatie</span>
+      </div>
+    </div>
+
+    <button class="btn-cta" id="btn-step1" onclick="goStep(2)" disabled>Volgende →</button>
+  </div>
+</div>
+
+<!-- ── STEP 2: DOEL ── -->
+<div class="step hidden" id="step-2">
+  <div class="step-inner">
+    <div class="step-progress" id="prog-2"></div>
+    <button class="btn-back" onclick="goStep(1)">← Terug</button>
+    <div class="step-eyebrow">Stap 2 van 4</div>
+    <h2 class="step-title" id="step2-title">Wat is je <em>doel?</em></h2>
+    <p class="step-sub">Kies een afstand of geef je eigen doel op.</p>
+
+    <div class="form-block">
+      <div class="form-label">Doelafstand</div>
+      <div class="dist-grid" id="dist-grid"></div>
+      <div id="custom-dist-wrap" style="display:none">
+        <div class="form-row">
+          <div class="form-block">
+            <input class="form-input" type="number" id="custom-dist-val" placeholder="bv. 75" min="1" oninput="onCustomDist()">
+          </div>
+          <div class="form-block">
+            <select class="form-input" id="custom-dist-unit" onchange="onCustomDist()">
+              <option value="km">km</option>
+              <option value="m">meter</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="toggle-row" onclick="toggleTimeGoal()" id="time-goal-toggle">
+      <span>Ik wil ook een tijdsdoel</span>
+      <div class="toggle" id="toggle-time"></div>
+    </div>
+    <div id="time-goal-inputs" style="display:none">
+      <div class="form-block">
+        <div class="form-label">Streeftijd (uu:mm:ss)</div>
+        <div class="form-row">
+          <div class="form-block"><input class="form-input" type="number" id="tg-hours" placeholder="0" min="0" max="23" style="text-align:center"></div>
+          <div style="display:flex;align-items:center;color:var(--muted);font-size:20px;padding-top:8px">:</div>
+          <div class="form-block"><input class="form-input" type="number" id="tg-minutes" placeholder="00" min="0" max="59" style="text-align:center"></div>
+          <div style="display:flex;align-items:center;color:var(--muted);font-size:20px;padding-top:8px">:</div>
+          <div class="form-block"><input class="form-input" type="number" id="tg-seconds" placeholder="00" min="0" max="59" style="text-align:center"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-block">
+      <div class="form-label">Doeldatum (wedstrijd of eigen deadline)</div>
+      <input class="form-input" type="date" id="target-date" onchange="checkStep2()">
+    </div>
+
+    <div id="weeks-warning" class="warn-box" style="display:none"></div>
+    <div id="weeks-info" class="info-box" style="display:none"></div>
+
+    <button class="btn-cta" id="btn-step2" onclick="goStep(3)" disabled>Volgende →</button>
+  </div>
+</div>
+
+<!-- ── STEP 3: SITUATIE ── -->
+<div class="step hidden" id="step-3">
+  <div class="step-inner">
+    <div class="step-progress" id="prog-3"></div>
+    <button class="btn-back" onclick="goStep(2)">← Terug</button>
+    <div class="step-eyebrow">Stap 3 van 4</div>
+    <h2 class="step-title">Jouw <em>situatie</em></h2>
+    <p class="step-sub">Hoe actiever je nu al bent, hoe verder je kunt starten.</p>
+
+    <div class="form-block">
+      <div class="form-label">Leeftijd</div>
+      <div class="slider-value" id="age-display">28</div>
+      <div class="slider-unit">jaar</div>
+      <div class="slider-wrap"><input type="range" id="age-slider" min="10" max="80" value="28" oninput="document.getElementById('age-display').textContent=this.value"></div>
+      <div class="slider-labels"><span>10</span><span>45</span><span>80</span></div>
+    </div>
+
+    <div class="form-block">
+      <div class="form-label">Hoe actief ben je nu?</div>
+      <div class="card-grid single-col" id="level-grid">
+        <div class="choice-card" data-level="beginner" onclick="selectLevel('beginner',this)">
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div class="cc-icon" style="font-size:20px;margin:0">😌</div>
+            <div><div class="cc-title" style="font-size:14px">Beginner</div><div class="cc-sub">Ik sport nauwelijks of ben pas gestopt</div></div>
+          </div>
+        </div>
+        <div class="choice-card" data-level="active" onclick="selectLevel('active',this)">
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div class="cc-icon" style="font-size:20px;margin:0">🚶</div>
+            <div><div class="cc-title" style="font-size:14px">Actief</div><div class="cc-sub">Ik beweeg 1–2× per week</div></div>
+          </div>
+        </div>
+        <div class="choice-card" data-level="regular" onclick="selectLevel('regular',this)">
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div class="cc-icon" style="font-size:20px;margin:0">🏅</div>
+            <div><div class="cc-title" style="font-size:14px">Regelmatig</div><div class="cc-sub">Ik sport 3–4× per week</div></div>
+          </div>
+        </div>
+        <div class="choice-card" data-level="experienced" onclick="selectLevel('experienced',this)">
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <div class="cc-icon" style="font-size:20px;margin:0">⚡</div>
+            <div><div class="cc-title" style="font-size:14px">Ervaren</div><div class="cc-sub">Ik train 5+ dagen per week</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="current-activity-block" style="display:none">
+      <div class="form-block">
+        <div class="form-label">Welke sport doe je nu voornamelijk?</div>
+        <select class="form-input" id="current-sport">
+          <option value="running">Hardlopen</option>
+          <option value="cycling">Fietsen</option>
+          <option value="swimming">Zwemmen</option>
+          <option value="other">Andere sport / fitness</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-block">
+          <div class="form-label">Sessies per week</div>
+          <input class="form-input" type="number" id="current-freq" value="3" min="1" max="14" style="text-align:center">
+        </div>
+        <div class="form-block">
+          <div class="form-label" id="dist-or-dur-label">Gem. afstand (km)</div>
+          <input class="form-input" type="number" id="current-dist" value="5" min="0.5" style="text-align:center">
+        </div>
+      </div>
+    </div>
+
+    <div class="form-block">
+      <div class="form-label">Zijn er blessures of beperkingen?</div>
+      <input class="form-input" type="text" id="injuries" placeholder="bv. knieklachten, geen — optioneel">
+    </div>
+
+    <button class="btn-cta" id="btn-step3" onclick="goStep(4)" disabled>Volgende →</button>
+  </div>
+</div>
+
+<!-- ── STEP 4: VOORKEUREN ── -->
+<div class="step hidden" id="step-4">
+  <div class="step-inner">
+    <div class="step-progress" id="prog-4"></div>
+    <button class="btn-back" onclick="goStep(3)">← Terug</button>
+    <div class="step-eyebrow">Stap 4 van 4</div>
+    <h2 class="step-title">Hoe wil je <em>trainen?</em></h2>
+    <p class="step-sub">Geef aan hoeveel dagen per week je kunt trainen.</p>
+
+    <div class="form-block">
+      <div class="form-label">Trainingsdagen per week</div>
+      <div class="num-row" id="days-row">
+        <div class="num-btn" onclick="selectDays(2,this)">2</div>
+        <div class="num-btn" onclick="selectDays(3,this)">3</div>
+        <div class="num-btn selected" onclick="selectDays(4,this)">4</div>
+        <div class="num-btn" onclick="selectDays(5,this)">5</div>
+        <div class="num-btn" onclick="selectDays(6,this)">6</div>
+      </div>
+    </div>
+
+    <div class="form-block">
+      <div class="form-label">Startdatum training</div>
+      <input class="form-input" type="date" id="start-date">
+    </div>
+
+    <div class="info-box" id="plan-preview"></div>
+
+    <button class="btn-cta" id="btn-generate" onclick="generate()">Schema genereren →</button>
+  </div>
+</div>
+
+<!-- ── GEGENEREERD SCHEMA ── -->
+<div id="schedule-view">
+  <div class="sv-header" style="padding:20px 20px 14px;border-bottom:1px solid var(--border)">
+    <div class="sv-eyebrow" id="sv-eyebrow">—</div>
+    <h1 id="sv-title">Jouw <em>schema</em></h1>
+    <div class="sv-sub" id="sv-sub"></div>
+    <button class="btn-restart" onclick="restart()">↺ Nieuw schema</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-val" id="stat-weeks">—</div><div class="stat-lbl">Weken</div></div>
+    <div class="stat-box"><div class="stat-val" id="stat-sessions">—</div><div class="stat-lbl">Sess/week</div></div>
+    <div class="stat-box"><div class="stat-val" id="stat-peak">—</div><div class="stat-lbl">Piek vol.</div></div>
+  </div>
+
+  <div class="tabs" style="margin-top:16px">
+    <button class="tab-btn active" onclick="showTab('schema')">Schema</button>
+    <button class="tab-btn" onclick="showTab('uitleg')">Uitleg</button>
+  </div>
+
+  <div id="tab-schema" class="panel active">
+    <div class="progress-bar-wrap">
+      <div class="pb-label"><span>Voortgang</span><strong id="sv-progress-text">0 trainingen</strong></div>
+      <div class="progress-track"><div class="progress-fill" id="sv-progress-fill" style="width:2%"></div></div>
+      <div class="progress-weeks" id="sv-progress-weeks"></div>
+    </div>
+    <div id="weeks-container"></div>
+  </div>
+
+  <div id="tab-uitleg" class="panel">
+    <div id="uitleg-content"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+const cfg = {
+  sports: [],
+  primarySport: null,
+  goalDistance: null,
+  goalUnit: 'km',
+  targetDate: null,
+  hasTimeGoal: false,
+  timeGoalSeconds: 0,
+  age: 28,
+  activityLevel: null,
+  currentSport: 'running',
+  currentFrequency: 3,
+  currentDistance: 5,
+  injuries: '',
+  daysPerWeek: 4,
+  startDate: null,
+};
+
+const completedSessions = JSON.parse(localStorage.getItem('gen_completed') || '[]');
+let generatedSchedule = null;
+
+// ═══════════════════════════════════════════════
+// SPORT GOAL DEFINITIONS
+// ═══════════════════════════════════════════════
+const SPORT_GOALS = {
+  running: [
+    { label: '5 km', value: 5, unit: 'km' },
+    { label: '10 km', value: 10, unit: 'km' },
+    { label: '15 km', value: 15, unit: 'km' },
+    { label: 'Halve marathon', value: 21.1, unit: 'km' },
+    { label: 'Marathon', value: 42.2, unit: 'km' },
+    { label: 'Custom', value: null, unit: 'km' },
+  ],
+  cycling: [
+    { label: '50 km', value: 50, unit: 'km' },
+    { label: '100 km', value: 100, unit: 'km' },
+    { label: '150 km', value: 150, unit: 'km' },
+    { label: '200 km', value: 200, unit: 'km' },
+    { label: 'Custom', value: null, unit: 'km' },
+  ],
+  swimming: [
+    { label: '500 m', value: 500, unit: 'm' },
+    { label: '1000 m', value: 1000, unit: 'm' },
+    { label: '1500 m', value: 1500, unit: 'm' },
+    { label: '3800 m', value: 3800, unit: 'm' },
+    { label: 'Custom', value: null, unit: 'm' },
+  ],
+  triathlon: [
+    { label: 'Sprint', value: 'sprint', unit: 'tri' },
+    { label: 'Olympisch', value: 'olympic', unit: 'tri' },
+    { label: 'Half Iron', value: 'half-iron', unit: 'tri' },
+    { label: 'Full Iron', value: 'full-iron', unit: 'tri' },
+  ],
+};
+
+const TRI_DISTANCES = {
+  sprint:     { swim: 750, bike: 20, run: 5 },
+  olympic:    { swim: 1500, bike: 40, run: 10 },
+  'half-iron':{ swim: 1900, bike: 90, run: 21.1 },
+  'full-iron':{ swim: 3800, bike: 180, run: 42.2 },
+};
+
+// ═══════════════════════════════════════════════
+// STEP NAVIGATION
+// ═══════════════════════════════════════════════
+let currentStep = 1;
+
+function renderDots(step) {
+  for (let s = 1; s <= 4; s++) {
+    const el = document.getElementById(`prog-${s}`);
+    if (!el) continue;
+    el.innerHTML = [1,2,3,4].map(d =>
+      `<div class="dot${d < step ? ' done' : d === step ? ' active' : ''}"></div>`
+    ).join('');
+  }
+}
+
+function goStep(n) {
+  const from = document.getElementById(`step-${currentStep}`);
+  const to   = document.getElementById(`step-${n}`);
+  if (!from || !to) return;
+
+  const goingForward = n > currentStep;
+  from.classList.add(goingForward ? 'slide-out-left' : 'slide-out-right');
+  to.classList.remove('hidden', 'slide-out-left', 'slide-out-right');
+
+  setTimeout(() => from.classList.add('hidden'), 350);
+
+  currentStep = n;
+  renderDots(n);
+
+  if (n === 2) buildDistGrid();
+  if (n === 4) updatePlanPreview();
+  if (n === 3) {
+    document.getElementById('current-sport').value = cfg.primarySport || 'running';
+  }
+}
+
+// ═══════════════════════════════════════════════
+// STEP 1: SPORT
+// ═══════════════════════════════════════════════
+function toggleSport(sport, el) {
+  if (sport === 'triathlon') {
+    // exclusive
+    cfg.sports = ['triathlon'];
+    cfg.primarySport = 'triathlon';
+    document.querySelectorAll('#sport-grid .choice-card').forEach(c => c.classList.remove('selected'));
+  } else {
+    // Remove triathlon if selecting individual sport
+    cfg.sports = cfg.sports.filter(s => s !== 'triathlon');
+    document.querySelector('[data-sport="triathlon"]')?.classList.remove('selected');
+    if (cfg.sports.includes(sport)) {
+      cfg.sports = cfg.sports.filter(s => s !== sport);
+    } else {
+      cfg.sports.push(sport);
+    }
+    cfg.primarySport = cfg.sports[0] || null;
+  }
+  document.querySelectorAll('#sport-grid .choice-card').forEach(c => {
+    c.classList.toggle('selected', cfg.sports.includes(c.dataset.sport));
+  });
+  document.getElementById('btn-step1').disabled = cfg.sports.length === 0;
+}
+
+// ═══════════════════════════════════════════════
+// STEP 2: GOAL
+// ═══════════════════════════════════════════════
+function buildDistGrid() {
+  const sport = cfg.primarySport;
+  const goals = SPORT_GOALS[sport] || SPORT_GOALS.running;
+  const grid = document.getElementById('dist-grid');
+  grid.innerHTML = goals.map(g =>
+    `<button class="dist-btn" data-value="${g.value}" data-unit="${g.unit}"
+      onclick="selectDist('${g.value}','${g.unit}',this)">${g.label}</button>`
+  ).join('');
+
+  // Title
+  const titles = { running:'hardloopschema', cycling:'fietsschema', swimming:'zwemschema', triathlon:'triathlonschema' };
+  document.getElementById('step2-title').innerHTML = `Wat is je <em>${titles[sport] || 'doel'}?</em>`;
+
+  cfg.goalDistance = null;
+  cfg.goalUnit = 'km';
+  document.getElementById('custom-dist-wrap').style.display = 'none';
+  checkStep2();
+}
+
+function selectDist(value, unit, el) {
+  document.querySelectorAll('.dist-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  if (value === 'null' || value === null || value === 'undefined') {
+    cfg.goalDistance = null;
+    cfg.goalUnit = unit;
+    document.getElementById('custom-dist-wrap').style.display = 'block';
+    document.getElementById('custom-dist-unit').value = unit;
+  } else if (['sprint','olympic','half-iron','full-iron'].includes(value)) {
+    cfg.goalDistance = value;
+    cfg.goalUnit = 'tri';
+    document.getElementById('custom-dist-wrap').style.display = 'none';
+  } else {
+    cfg.goalDistance = parseFloat(value);
+    cfg.goalUnit = unit;
+    document.getElementById('custom-dist-wrap').style.display = 'none';
+  }
+  checkStep2();
+}
+
+function onCustomDist() {
+  cfg.goalDistance = parseFloat(document.getElementById('custom-dist-val').value) || null;
+  cfg.goalUnit = document.getElementById('custom-dist-unit').value;
+  checkStep2();
+}
+
+function toggleTimeGoal() {
+  cfg.hasTimeGoal = !cfg.hasTimeGoal;
+  document.getElementById('toggle-time').classList.toggle('on', cfg.hasTimeGoal);
+  document.getElementById('time-goal-inputs').style.display = cfg.hasTimeGoal ? 'block' : 'none';
+}
+
+function checkStep2() {
+  const dateVal = document.getElementById('target-date').value;
+  cfg.targetDate = dateVal || null;
+
+  const warn = document.getElementById('weeks-warning');
+  const info = document.getElementById('weeks-info');
+  warn.style.display = 'none';
+  info.style.display = 'none';
+
+  if (cfg.goalDistance && cfg.targetDate) {
+    const weeks = weeksUntil(cfg.targetDate);
+    const minWeeks = getMinWeeks(cfg.primarySport, cfg.goalDistance, cfg.goalUnit);
+
+    if (weeks < 4) {
+      warn.style.display = 'block';
+      warn.textContent = `Je doeldatum is erg dichtbij (${weeks} week${weeks !== 1 ? 'en' : ''}). We maken een intensief kort schema, maar meer tijd is beter.`;
+    } else if (weeks < minWeeks) {
+      warn.style.display = 'block';
+      warn.innerHTML = `<strong>Let op:</strong> voor dit doel raden sportwetenschap ${minWeeks}+ weken aan. Met ${weeks} weken is het schema intensiever — luister goed naar je lichaam.`;
+    } else {
+      info.style.display = 'block';
+      info.innerHTML = `<strong>${weeks} weken beschikbaar</strong> — dat is ${weeks >= minWeeks ? 'genoeg' : 'krap'} voor dit doel. We bouwen een verantwoord periodiseringsschema.`;
+    }
+  }
+
+  document.getElementById('btn-step2').disabled = !(cfg.goalDistance && cfg.targetDate);
+}
+
+function weeksUntil(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return Math.max(1, Math.round((d - now) / (7 * 24 * 60 * 60 * 1000)));
+}
+
+function getMinWeeks(sport, dist, unit) {
+  if (sport === 'triathlon') return { sprint: 10, olympic: 16, 'half-iron': 24, 'full-iron': 36 }[dist] || 12;
+  if (sport === 'running') {
+    const km = unit === 'km' ? dist : dist / 1000;
+    if (km <= 5) return 6; if (km <= 10) return 10; if (km <= 21.1) return 16; return 24;
+  }
+  if (sport === 'cycling') {
+    const km = unit === 'km' ? dist : dist / 1000;
+    if (km <= 50) return 6; if (km <= 100) return 10; if (km <= 150) return 14; return 20;
+  }
+  if (sport === 'swimming') {
+    const m = unit === 'm' ? dist : dist * 1000;
+    if (m <= 500) return 6; if (m <= 1500) return 10; return 16;
+  }
+  return 8;
+}
+
+// ═══════════════════════════════════════════════
+// STEP 3: SITUATION
+// ═══════════════════════════════════════════════
+function selectLevel(level, el) {
+  cfg.activityLevel = level;
+  document.querySelectorAll('#level-grid .choice-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  const showBlock = level !== 'beginner';
+  document.getElementById('current-activity-block').style.display = showBlock ? 'block' : 'none';
+  document.getElementById('btn-step3').disabled = false;
+}
+
+// ═══════════════════════════════════════════════
+// STEP 4: PREFERENCES
+// ═══════════════════════════════════════════════
+function selectDays(n, el) {
+  cfg.daysPerWeek = n;
+  document.querySelectorAll('.num-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  updatePlanPreview();
+}
+
+function updatePlanPreview() {
+  const startVal = document.getElementById('start-date').value;
+  cfg.startDate = startVal || todayStr();
+  const weeks = cfg.targetDate ? weeksUntil(cfg.targetDate) : '?';
+  const totalSessions = typeof weeks === 'number' ? weeks * cfg.daysPerWeek : '?';
+  const sport = cfg.primarySport;
+  const sportName = { running: 'hardloopsessies', cycling: 'fietstrainingen', swimming: 'zwemsessies', triathlon: 'trainingen' }[sport] || 'trainingen';
+  document.getElementById('plan-preview').innerHTML =
+    `<strong style="color:var(--accent)">${weeks} weken</strong> · <strong style="color:var(--accent)">${cfg.daysPerWeek}×</strong> per week · ~<strong style="color:var(--accent)">${totalSessions}</strong> ${sportName} totaal`;
+}
+
+function todayStr() {
+  return new Date().toISOString().split('T')[0];
+}
+
+// ═══════════════════════════════════════════════
+// SCHEDULE GENERATOR
+// ═══════════════════════════════════════════════
+function generate() {
+  // collect remaining values
+  cfg.age = parseInt(document.getElementById('age-slider').value);
+  cfg.currentSport = document.getElementById('current-sport').value;
+  cfg.currentFrequency = parseFloat(document.getElementById('current-freq').value) || 3;
+  cfg.currentDistance = parseFloat(document.getElementById('current-dist').value) || 5;
+  cfg.injuries = document.getElementById('injuries').value;
+  cfg.startDate = document.getElementById('start-date').value || todayStr();
+
+  if (cfg.hasTimeGoal) {
+    const h = parseInt(document.getElementById('tg-hours').value) || 0;
+    const m = parseInt(document.getElementById('tg-minutes').value) || 0;
+    const s = parseInt(document.getElementById('tg-seconds').value) || 0;
+    cfg.timeGoalSeconds = h * 3600 + m * 60 + s;
+  }
+
+  // show loading
+  const loading = document.getElementById('loading-screen');
+  loading.classList.remove('hidden');
+  document.getElementById('step-4').classList.add('hidden');
+
+  const msgs = [
+    'Trainingsprincipes toepassen…',
+    'Periodiseringsmodel berekenen…',
+    'Volume opbouw kalibreren…',
+    'Sessietypes toewijzen…',
+    'Beschrijvingen genereren…',
+    'Schema samenstellen…',
+  ];
+  let mi = 0;
+  const lt = document.getElementById('loading-text');
+  const msgInt = setInterval(() => { lt.textContent = msgs[mi++ % msgs.length]; }, 500);
+
+  setTimeout(() => {
+    clearInterval(msgInt);
+    generatedSchedule = buildSchedule(cfg);
+    loading.classList.add('hidden');
+    renderScheduleView(generatedSchedule);
+    document.getElementById('schedule-view').classList.add('visible');
+    localStorage.setItem('gen_cfg', JSON.stringify(cfg));
+    localStorage.setItem('gen_schedule', JSON.stringify(generatedSchedule));
+  }, 2800);
+}
+
+// ── ALGORITHM ──
+function buildSchedule(config) {
+  const sport = config.primarySport;
+  const totalWeeks = Math.max(4, Math.min(52, weeksUntil(config.targetDate)));
+  const taperWeeks = sport === 'swimming' ? 1 : (totalWeeks >= 20 ? 3 : totalWeeks >= 10 ? 2 : 1);
+
+  const startVol = calcStartVolume(config);
+  const peakVol  = calcPeakVolume(config);
+  const ageFactor = getAgeFactor(config.age);
+  const adjPeak = peakVol * ageFactor;
+
+  const weeklyVols = buildVolumeCurve(startVol, adjPeak, totalWeeks, taperWeeks);
+  const phases = buildPhases(totalWeeks, taperWeeks);
+
+  const schedule = weeklyVols.map((vol, i) => {
+    const week = i + 1;
+    const phase = phases[i];
+    const prevVol = i > 0 ? weeklyVols[i-1] : vol;
+    const isRecovery = vol < prevVol * 0.9 && week > 1 && week < totalWeeks - taperWeeks + 1;
+    const isRaceWeek = week === totalWeeks;
+    const sessions = makeSessions({ vol, week, totalWeeks, config, phase, isRecovery, isRaceWeek, taperWeeks });
+    return { week, volume: Math.round(vol * 10) / 10, phase, isRecovery, isRaceWeek, sessions };
+  });
+
+  return { schedule, totalWeeks, startVol, peakVol: adjPeak, taperWeeks, config };
+}
+
+function calcStartVolume(config) {
+  const { activityLevel, currentSport, primarySport, currentFrequency, currentDistance } = config;
+  if (activityLevel === 'beginner') {
+    return { running: 8, cycling: 30, swimming: 1500, triathlon: 10 }[primarySport] || 8;
+  }
+  const rawVol = (currentFrequency || 1) * (currentDistance || 5);
+  // cross-sport transfer
+  const transfer = currentSport === primarySport ? 1.0
+    : currentSport === 'other' ? 0.5
+    : ({ 'running-cycling': 0.35, 'cycling-running': 0.55, 'swimming-running': 0.45,
+         'running-swimming': 0.40, 'cycling-swimming': 0.30, 'swimming-cycling': 0.45 }
+      [`${currentSport}-${primarySport}`] || 0.4);
+  const levelMult = { active: 0.7, regular: 1.0, experienced: 1.2 }[activityLevel] || 0.7;
+  let vol = rawVol * transfer * levelMult;
+  return Math.max(vol, { running: 8, cycling: 25, swimming: 1500, triathlon: 10 }[primarySport] || 8);
+}
+
+function calcPeakVolume(config) {
+  const { primarySport, goalDistance, goalUnit } = config;
+  if (primarySport === 'triathlon') {
+    const tri = TRI_DISTANCES[goalDistance];
+    if (!tri) return 50;
+    // Combined equiv km
+    return tri.run * 1 + tri.bike * 0.3 + tri.swim / 1000 * 5;
+  }
+  const km = goalUnit === 'm' ? goalDistance / 1000 : goalDistance;
+  if (primarySport === 'running') {
+    if (km <= 5) return 22; if (km <= 10) return 38; if (km <= 15) return 48;
+    if (km <= 21.1) return 58; if (km <= 42.2) return 75; return km * 2.8;
+  }
+  if (primarySport === 'cycling') {
+    if (km <= 50) return 110; if (km <= 100) return 230; if (km <= 150) return 340; if (km <= 200) return 450; return km * 2.5;
+  }
+  if (primarySport === 'swimming') {
+    const m = goalUnit === 'm' ? goalDistance : goalDistance * 1000;
+    if (m <= 500) return 4500; if (m <= 1000) return 8000; if (m <= 1500) return 12000; if (m <= 3800) return 22000; return m * 5;
+  }
+  return 30;
+}
+
+function getAgeFactor(age) {
+  if (age < 14) return 0.60; if (age < 16) return 0.70; if (age < 18) return 0.82;
+  if (age <= 40) return 1.00; if (age <= 50) return 0.90; if (age <= 60) return 0.80; return 0.70;
+}
+
+function buildVolumeCurve(startVol, peakVol, totalWeeks, taperWeeks) {
+  const buildWeeks = totalWeeks - taperWeeks;
+  const vols = [];
+  let cur = startVol;
+  let buildWeekIdx = 0;
+
+  for (let w = 1; w <= buildWeeks; w++) {
+    buildWeekIdx++;
+    const isRecovery = buildWeekIdx % 4 === 0 && w < buildWeeks;
+    if (isRecovery) {
+      vols.push(cur * 0.72);
+      buildWeekIdx = 0;
+    } else {
+      vols.push(cur);
+      if (cur < peakVol) cur = Math.min(cur * 1.10, peakVol);
+    }
+  }
+
+  // Taper
+  let tv = peakVol;
+  for (let t = 0; t < taperWeeks; t++) {
+    tv *= t === taperWeeks - 1 ? 0.52 : 0.72;
+    vols.push(tv);
+  }
+  return vols;
+}
+
+function buildPhases(totalWeeks, taperWeeks) {
+  const build = totalWeeks - taperWeeks;
+  const p1end = Math.round(build * 0.35);
+  const p2end = Math.round(build * 0.65);
+  const p3end = build;
+
+  const phaseNames = {
+    running:   ['Basis opbouwen', 'Uithoudingsvermogen', 'Opbouw intensiteit', 'Tapering', 'Wedstrijdweek'],
+    cycling:   ['Basis opbouwen', 'Uithoudingsvermogen', 'Opbouw intensiteit', 'Tapering', 'Wedstrijddag'],
+    swimming:  ['Techniek & basis', 'Volume opbouwen', 'Snelheid & uithoudingsvermogen', 'Tapering', 'Wedstrijddag'],
+    triathlon: ['Basis opbouwen', 'Uithoudingsvermogen', 'Race-specifieke opbouw', 'Tapering', 'Race'],
+  };
+  const sport = cfg.primarySport || 'running';
+  const [n1,n2,n3,n4,n5] = phaseNames[sport] || phaseNames.running;
+
+  return Array.from({ length: totalWeeks }, (_, i) => {
+    const w = i + 1;
+    if (w === totalWeeks) return n5;
+    if (w > p3end) return n4;
+    if (w > p2end) return n3;
+    if (w > p1end) return n2;
+    return n1;
+  });
+}
+
+// ── SESSION GENERATION ──
+const DAY_NAMES = {
+  2: ['Woensdag', 'Zaterdag'],
+  3: ['Maandag', 'Woensdag', 'Zaterdag'],
+  4: ['Maandag', 'Dinsdag', 'Donderdag', 'Zaterdag'],
+  5: ['Maandag', 'Dinsdag', 'Donderdag', 'Vrijdag', 'Zaterdag'],
+  6: ['Maandag', 'Dinsdag', 'Woensdag', 'Donderdag', 'Vrijdag', 'Zaterdag'],
+};
+
+function makeSessions({ vol, week, totalWeeks, config, phase, isRecovery, isRaceWeek }) {
+  const { primarySport, daysPerWeek, goalDistance, goalUnit, timeGoalSeconds } = config;
+  const days = DAY_NAMES[daysPerWeek] || DAY_NAMES[4];
+  const isPreRace = week === totalWeeks - 1;
+  const unit = primarySport === 'swimming' ? 'm' : 'km';
+
+  if (isRaceWeek) {
+    return [
+      { day: days[0], type: 'activation', name: 'Activatie', vol: round1(vol * 0.12), unit, tag: 'easy', desc: makeDesc('activation', primarySport, round1(vol * 0.12), phase, timeGoalSeconds, goalDistance, goalUnit) },
+      { day: days[Math.floor(days.length / 2)] || days[1], type: 'rest', name: 'Volledige rust', vol: 0, unit, tag: 'rest', desc: 'Wandelen mag, niet sporten. Voeten omhoog, goed eten, goed slapen. Je bent er klaar voor!' },
+      { day: days[days.length - 1], type: 'race', name: raceLabel(primarySport, goalDistance, goalUnit), vol: raceVol(primarySport, goalDistance, goalUnit), unit, tag: 'race', desc: makeDesc('race', primarySport, 0, phase, timeGoalSeconds, goalDistance, goalUnit) },
+    ];
+  }
+
+  const longPct  = isRecovery ? 0.30 : 0.33;
+  const qualPct  = isRecovery ? 0.00 : (phase === 'Basis opbouwen' || phase === 'Techniek & basis' ? 0.14 : 0.22);
+  const easyPct  = 1 - longPct - qualPct;
+
+  const longVol  = round1(vol * longPct);
+  const qualVol  = round1(vol * qualPct);
+  const easyVol  = round1(vol * easyPct);
+
+  const sessions = [];
+
+  if (daysPerWeek === 2) {
+    sessions.push(makeSession(days[0], 'easy', primarySport, round1(easyVol * 0.9), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[1], 'long', primarySport, longVol, phase, timeGoalSeconds, goalDistance, goalUnit));
+  } else if (daysPerWeek === 3) {
+    sessions.push(makeSession(days[0], 'easy', primarySport, round1(easyVol * 0.55), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[1], isRecovery ? 'easy' : 'quality', primarySport, isRecovery ? round1(easyVol * 0.45) : qualVol, phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[2], 'long', primarySport, longVol, phase, timeGoalSeconds, goalDistance, goalUnit));
+  } else if (daysPerWeek === 4) {
+    sessions.push(makeSession(days[0], 'easy', primarySport, round1(easyVol * 0.36), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[1], isRecovery ? 'easy' : 'quality', primarySport, isRecovery ? round1(easyVol * 0.32) : round1(qualVol * 0.55), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[2], isRecovery ? 'easy' : 'quality', primarySport, isRecovery ? round1(easyVol * 0.32) : round1(qualVol * 0.45), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[3], 'long', primarySport, longVol, phase, timeGoalSeconds, goalDistance, goalUnit));
+  } else if (daysPerWeek === 5) {
+    sessions.push(makeSession(days[0], 'easy', primarySport, round1(easyVol * 0.28), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[1], isRecovery ? 'easy' : 'quality', primarySport, isRecovery ? round1(easyVol * 0.24) : round1(qualVol * 0.55), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[2], 'easy', primarySport, round1(easyVol * 0.24), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[3], isRecovery ? 'easy' : 'quality', primarySport, isRecovery ? round1(easyVol * 0.24) : round1(qualVol * 0.45), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[4], 'long', primarySport, longVol, phase, timeGoalSeconds, goalDistance, goalUnit));
+  } else {
+    sessions.push(makeSession(days[0], 'easy', primarySport, round1(easyVol * 0.20), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[1], isRecovery ? 'easy' : 'quality', primarySport, isRecovery ? round1(easyVol * 0.18) : round1(qualVol * 0.50), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[2], 'easy', primarySport, round1(easyVol * 0.18), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[3], isRecovery ? 'easy' : 'quality', primarySport, isRecovery ? round1(easyVol * 0.18) : round1(qualVol * 0.50), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[4], 'easy', primarySport, round1(easyVol * 0.17), phase, timeGoalSeconds, goalDistance, goalUnit));
+    sessions.push(makeSession(days[5], 'long', primarySport, longVol, phase, timeGoalSeconds, goalDistance, goalUnit));
+  }
+
+  return sessions;
+}
+
+function makeSession(day, type, sport, vol, phase, timeGoalSecs, goalDist, goalUnit) {
+  const unit = sport === 'swimming' ? 'm' : 'km';
+  const qualityPhase = phaseToQuality(phase, sport);
+  const sessionType = type === 'quality' ? qualityPhase : type;
+  return {
+    day, type: sessionType, name: sessionName(sessionType, sport),
+    vol, unit, tag: type === 'quality' ? 'quality' : type,
+    desc: makeDesc(sessionType, sport, vol, phase, timeGoalSecs, goalDist, goalUnit)
+  };
+}
+
+function phaseToQuality(phase, sport) {
+  if (phase === 'Basis opbouwen' || phase === 'Techniek & basis') return 'fartlek';
+  if (phase === 'Uithoudingsvermogen' || phase === 'Volume opbouwen') return 'tempo';
+  return 'interval';
+}
+
+function sessionName(type, sport) {
+  const names = {
+    running: { easy:'Duurloop', long:'Lange loop', fartlek:'Fartlek', tempo:'Tempoloop', interval:'Intervaltraining', activation:'Activatieloop', race:'🏅 Race', rest:'Rustdag' },
+    cycling:  { easy:'Herstelrit', long:'Lange rit', fartlek:'Fartlek-rit', tempo:'Temporit', interval:'Intervalrit', activation:'Activatierit', race:'🏅 Rit', rest:'Rustdag' },
+    swimming: { easy:'Techniektraining', long:'Lange zwemming', fartlek:'Variatie zwemmen', tempo:'Temposet', interval:'Intervaltraining', activation:'Activatiezwemmen', race:'🏅 Wedstrijd', rest:'Rustdag' },
+    triathlon:{ easy:'Basistraining', long:'Lange duurtraining', fartlek:'Fartlek', tempo:'Temposessie', interval:'Intervaltraining', activation:'Activatie', race:'🏅 Race', rest:'Rustdag' },
+  };
+  return (names[sport] || names.running)[type] || type;
+}
+
+function raceLabel(sport, dist, unit) {
+  if (sport === 'triathlon') return `🏅 ${dist.charAt(0).toUpperCase()+dist.slice(1)} Triathlon`;
+  const val = unit === 'm' ? `${dist} m` : `${dist} km`;
+  return `🏅 ${val} ${sport === 'cycling' ? 'rit' : sport === 'swimming' ? 'zwemwedstrijd' : 'race'}`;
+}
+
+function raceVol(sport, dist, unit) {
+  if (sport === 'triathlon') { const t = TRI_DISTANCES[dist]; return t ? t.run : 0; }
+  return parseFloat(dist) || 0;
+}
+
+function makeDesc(type, sport, vol, phase, timeGoalSecs, goalDist, goalUnit) {
+  const unit = sport === 'swimming' ? 'm' : 'km';
+  const paceHint = timeGoalSecs > 0 ? getPaceHint(sport, goalDist, goalUnit, timeGoalSecs) : '';
+
+  if (type === 'rest') return 'Volledige rustdag. Wandelen mag. Goed eten en slapen — dat is de training vandaag.';
+  if (type === 'activation') {
+    if (sport === 'running') return `${vol} ${unit} heel rustig joggen + 3 × 30 sec lichte versnelling. Benen wakker maken, niet vermoeid. Morgen is het zover!`;
+    if (sport === 'cycling') return `${vol} ${unit} heel rustig fietsen met 3 korte sprintjes. Benen losmaken voor de grote dag.`;
+    if (sport === 'swimming') return `${vol} ${unit} rustig zwemmen met 4 × 25 m op iets hoger tempo. Focus op goede techniek en ademhaling.`;
+    return `Korte activatiesessie van ${vol} ${unit}. Rustig blijven, niet uitputten.`;
+  }
+  if (type === 'race') {
+    if (sport === 'running') return `Dit is waarvoor je hebt getraind. ${paceHint ? `Streeftempo: ${paceHint}/km. ` : ''}Begin de eerste 20% bewust rustig — het is verleidelijk te snel te gaan. Geniet van elke kilometer.`;
+    if (sport === 'cycling') return `De grote dag! ${paceHint ? `Streefsnelheid: ${paceHint}. ` : ''}Rijd de eerste 25% in je comfortzone. Eet en drink goed. Geniet van het parcours!`;
+    if (sport === 'swimming') return `Jouw wedstrijd! Begin rustig en vind je ritme in de eerste 100 m. ${paceHint ? `Streeftijd per 100m: ${paceHint}. ` : ''}Dan consistent doorzetten. Je kunt dit!`;
+    return `Race dag! Begin rustig en bouw op. Je hebt hier weken voor getraind — vertrouw je voorbereiding.`;
+  }
+
+  if (sport === 'running') {
+    if (type === 'easy') return `${vol} km in een rustig, gesprekstempo. Als je niet meer kunt praten, ga je te snel. Schouders ontspannen, adem ritmisch.${paceHint ? ` Easy pace ca. ${easyPace(paceHint)}/km.` : ''}`;
+    if (type === 'long') return `${vol} km — de langste loop van de week. Loop de eerste helft bewust rustig en bewaar energie voor de tweede helft. Neem water mee.${paceHint ? ` Houd een tempo van ~${easyPace(paceHint)}/km aan.` : ''}`;
+    if (type === 'fartlek') return `${vol} km fartlek: loop rustig en versneel 3–4 keer spontaan voor 1–2 min als je je goed voelt. Geen structuur, gewoon gevoel.`;
+    if (type === 'tempo') return `Tempoloop: 1 km opwarmen → ${round1(vol * 0.65)} km op "comfortabel hard" (je kunt nog 1 woord zeggen) → 1 km afkoelen.${paceHint ? ` Streeftempo: ${paceHint}/km.` : ''}`;
+    if (type === 'interval') return `Intervaltraining: 1 km opwarmen → 5–6 × 800 m snel met 90 sec wandelpauze → 1 km afkoelen. Totaal ~${vol} km.${paceHint ? ` Intervaltempo: ${fastPace(paceHint)}/km.` : ''}`;
+  }
+  if (sport === 'cycling') {
+    if (type === 'easy') return `${vol} km rustig fietsen in zone 1–2. Je kunt comfortabel een gesprek voeren. Perfect voor herstel en basisuithoudingsvermogen.`;
+    if (type === 'long') return `${vol} km — de lange rit van de week. Houd een comfortabel aerobe tempo aan. Eet elke 45–60 min iets onderweg.`;
+    if (type === 'fartlek') return `${vol} km met 3–4 spontane versnellingen van 2–3 min. Gevoel voor snelheid opbouwen zonder harde structuur.`;
+    if (type === 'tempo') return `Temporit: 10 min opwarmen → ${round1(vol * 0.65)} km op een hoog maar houdbaar tempo → 10 min afkoelen. Drempeltraining.`;
+    if (type === 'interval') return `Intervalrit: 10 min opwarmen → 5 × 3 min hard (zone 4–5) met 3 min herstel → 10 min afkoelen. Totaal ~${vol} km.`;
+  }
+  if (sport === 'swimming') {
+    if (type === 'easy') return `${vol} m techniektraining. Focus op een efficiënte slag, horizontale ligging en ritmische ademhaling. Niet op snelheid.`;
+    if (type === 'long') return `${vol} m non-stop doorswemmen in een rustig, stabiel tempo. Focus op consistente slagfrequentie en gelijkmatige ademhaling.`;
+    if (type === 'fartlek') return `${vol} m variatie-zwemmen: wissel 2 minuten rustig af met 30 sec hoger tempo. Spelenderwijs snelheid opbouwen.`;
+    if (type === 'tempo') return `Temposet: ${Math.round(vol * 0.25)} m opwarmen → 4 × 100 m op tempo met 30 sec rust → ${Math.round(vol * 0.15)} m afkoelen.`;
+    if (type === 'interval') return `Intervaltraining: ${Math.round(vol * 0.25)} m opwarmen → 8 × 50 m snel met 20 sec rust → ${Math.round(vol * 0.15)} m afkoelen. Totaal ~${vol} m.`;
+  }
+  if (sport === 'triathlon') {
+    const sportLabel = type === 'easy' ? 'basistraining' : 'kwaliteitssessie';
+    return `${vol} km ${sportLabel}. Wissel de disciplines af op basis van je weekschema. Focus op constante output.`;
+  }
+  return `${vol} ${unit} training.`;
+}
+
+function getPaceHint(sport, dist, unit, secs) {
+  if (sport !== 'running') return '';
+  const km = unit === 'm' ? dist / 1000 : parseFloat(dist);
+  if (!km || !secs) return '';
+  const paceSecPerKm = secs / km;
+  const m = Math.floor(paceSecPerKm / 60);
+  const s = Math.round(paceSecPerKm % 60);
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+function easyPace(pace) {
+  // easy = +60-75 sec per km
+  const [m,s] = pace.split(':').map(Number);
+  const total = m*60 + s + 68;
+  return `${Math.floor(total/60)}:${String(total%60).padStart(2,'0')}`;
+}
+function fastPace(pace) {
+  // interval = -30-40 sec per km
+  const [m,s] = pace.split(':').map(Number);
+  const total = Math.max(m*60+s-35, 150);
+  return `${Math.floor(total/60)}:${String(total%60).padStart(2,'0')}`;
+}
+function round1(n) { return Math.round(n * 10) / 10; }
+
+// ═══════════════════════════════════════════════
+// RENDER SCHEDULE
+// ═══════════════════════════════════════════════
+function renderScheduleView(data) {
+  const { schedule, totalWeeks, peakVol, config } = data;
+  const sport = config.primarySport;
+  const unit  = sport === 'swimming' ? 'm' : 'km';
+  const sportLabel = { running:'hardloopschema', cycling:'fietsschema', swimming:'zwemschema', triathlon:'triathlonschema' }[sport] || 'trainingsschema';
+  const goalStr = config.goalUnit === 'tri'
+    ? `${config.goalDistance} triathlon`
+    : `${config.goalDistance} ${config.goalUnit}`;
+
+  document.getElementById('sv-eyebrow').textContent = `${goalStr} · ${new Date(config.targetDate).toLocaleDateString('nl-NL',{day:'numeric',month:'long',year:'numeric'})}`;
+  document.getElementById('sv-title').innerHTML = `Jouw persoonlijk <em>${sportLabel}</em>`;
+  document.getElementById('sv-sub').textContent = `${totalWeeks} weken · ${config.daysPerWeek}× per week · leeftijd ${config.age} · ${levelLabel(config.activityLevel)}`;
+
+  document.getElementById('stat-weeks').textContent = totalWeeks;
+  document.getElementById('stat-sessions').textContent = config.daysPerWeek;
+  document.getElementById('stat-peak').textContent = `${Math.round(peakVol)} ${unit}`;
+
+  const totalSessions = schedule.reduce((a,w) => a + w.sessions.filter(s => s.type !== 'rest').length, 0);
+  document.getElementById('sv-progress-text').textContent = `0 van ${totalSessions} trainingen voltooid`;
+
+  const midWeek = Math.ceil(totalWeeks / 2);
+  document.getElementById('sv-progress-weeks').innerHTML = `<span>Week 1</span><span>Week ${midWeek}</span><span>Week ${totalWeeks}</span>`;
+
+  renderWeeks(schedule, config);
+  renderUitleg(data);
+  showTab('schema');
+}
+
+function renderWeeks(schedule, config) {
+  const container = document.getElementById('weeks-container');
+  const now = new Date();
+  const startDate = new Date(config.startDate);
+
+  container.innerHTML = schedule.map(weekData => {
+    const { week, phase, isRecovery, isRaceWeek, sessions, volume } = weekData;
+    const weekStart = new Date(startDate.getTime() + (week - 1) * 7 * 24 * 60 * 60 * 1000);
+    const weekEnd   = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
+    const isCurrent = now >= weekStart && now <= weekEnd;
+    const isDone    = weekEnd < now;
+    const unit      = config.primarySport === 'swimming' ? 'm' : 'km';
+
+    const dateStr = weekStart.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' });
+    const badge   = isRaceWeek ? '🏅 Race' : isRecovery ? '↓ Herstel' : isCurrent ? 'Nu' : isDone ? '✓ klaar' : '';
+    const cls     = `week-block${isCurrent ? ' current' : ''}${isDone ? ' done' : ''}${isRecovery ? ' recovery' : ''}`;
+
+    const sessionsHtml = sessions.map(s => {
+      const tagClass = `tag-${s.tag}`;
+      const volText  = s.vol > 0 ? `<div class="session-volume">${s.vol}<span>${s.unit}</span></div>` : '';
+      return `
+        <div class="session-card">
+          <div class="session-card-top">
+            <div>
+              <div class="session-day">${s.day}</div>
+              <div style="margin-bottom:4px"><span class="session-tag ${tagClass}">${s.tag}</span></div>
+              <div class="session-name">${s.name}</div>
+            </div>
+            ${volText}
+          </div>
+          <div class="session-desc">${s.desc}</div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="${cls}">
+        <div class="week-header" onclick="toggleWeek(${week})">
+          <div>
+            <div class="week-label-small">Week ${week} · ${dateStr} · ${Math.round(volume)} ${unit}</div>
+            <div class="week-title-text">${phase}</div>
+          </div>
+          <div class="week-badge">${badge}</div>
+        </div>
+        <div class="week-sessions${isCurrent || isRaceWeek ? ' open' : ''}" id="wk-${week}">
+          ${sessionsHtml}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderUitleg(data) {
+  const { config, startVol, peakVol, taperWeeks } = data;
+  const sport = config.primarySport;
+  const unit  = sport === 'swimming' ? 'm' : 'km';
+  const ageFactor = getAgeFactor(config.age);
+  const ageNote = config.age < 18
+    ? `<p>Je bent jonger dan 18 jaar. We hebben het trainingsvolume met ${Math.round((1-ageFactor)*100)}% verlaagd ten opzichte van een volwassene. Herstel is op jouw leeftijd extra belangrijk.</p>`
+    : config.age > 50
+    ? `<p>Op ${config.age} jaar is herstel extra belangrijk. We houden meer ruimte voor hersteldagen.</p>` : '';
+
+  document.getElementById('uitleg-content').innerHTML = `
+    <div class="info-box" style="margin-bottom:16px">
+      <strong>Hoe is dit schema opgebouwd?</strong>
+    </div>
+    <div class="info-box">
+      <strong>Startvolume:</strong> ~${Math.round(startVol)} ${unit}/week<br>
+      <strong>Piekvolume:</strong> ~${Math.round(peakVol)} ${unit}/week<br>
+      <strong>Taperingweken:</strong> ${taperWeeks}<br><br>
+      ${ageNote}
+      <strong>10%-regel:</strong> het wekelijks volume neemt maximaal 10% toe. Elke 4e week is een herstelweek (volume ~28% lager) zodat je lichaam kan adaptëren.<br><br>
+      <strong>Periodisering:</strong> het schema verloopt van basisopbouw → uithoudingsvermogen → intensiteit → tapering. In elke fase verschuift de nadruk van volume naar kwaliteit.<br><br>
+      <strong>Sessietypen:</strong><br>
+      <span class="session-tag tag-easy">easy</span> Aerobe basis, gesprekstempo (~70% max HF)<br>
+      <span class="session-tag tag-quality">quality</span> Fartlek / tempo / interval (~80-90% max HF)<br>
+      <span class="session-tag tag-long">long</span> Langste sessie van de week, rustig tempo<br>
+      <span class="session-tag tag-race">race</span> Wedstrijd of proefloop<br><br>
+      <strong>Maximale hartfrequentie:</strong> ~${220 - config.age} slagen/min (220 − leeftijd, globale schatting)<br>
+      Zone 1-2 (easy): ${Math.round((220-config.age)*0.60)}–${Math.round((220-config.age)*0.75)} slagen/min<br>
+      Zone 3 (tempo): ${Math.round((220-config.age)*0.75)}–${Math.round((220-config.age)*0.85)} slagen/min<br>
+      Zone 4-5 (interval): ${Math.round((220-config.age)*0.85)}–${Math.round((220-config.age)*0.95)} slagen/min
+    </div>
+    <div class="info-box">
+      <strong>Bronnen & principes:</strong><br>
+      • 10%-volumeopbouwritme (Fredericson & Misra, 2007)<br>
+      • 80/20-regel (Seiler, 2010): 80% laag intensief, 20% hoog intensief<br>
+      • Periodisering naar Bompa & Haff (2009)<br>
+      • Tapering: 2-3 weken voor race, volume -30-50% (Mujika & Padilla, 2003)<br>
+      • Leeftijdsaanpassingen: ACSM Guidelines for Exercise Testing & Prescription
+    </div>
+  `;
+}
+
+function levelLabel(l) {
+  return { beginner: 'beginner', active: 'actief', regular: 'regelmatig actief', experienced: 'ervaren' }[l] || l;
+}
+
+function toggleWeek(w) {
+  document.getElementById(`wk-${w}`)?.classList.toggle('open');
+}
+
+function showTab(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${id}`)?.classList.add('active');
+  const idx = ['schema','uitleg'].indexOf(id);
+  document.querySelectorAll('.tab-btn')[idx]?.classList.add('active');
+}
+
+function restart() {
+  document.getElementById('schedule-view').classList.remove('visible');
+  cfg.sports = []; cfg.primarySport = null; cfg.goalDistance = null;
+  cfg.activityLevel = null;
+  document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
+  document.querySelectorAll('.dist-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('btn-step1').disabled = true;
+  document.getElementById('btn-step2').disabled = true;
+  document.getElementById('btn-step3').disabled = true;
+  const s1 = document.getElementById('step-1');
+  s1.classList.remove('hidden','slide-out-left','slide-out-right');
+  [2,3,4].forEach(n => document.getElementById(`step-${n}`)?.classList.add('hidden'));
+  currentStep = 1;
+  renderDots(1);
+}
+
+// ── INIT ──
+const today = new Date();
+const todayISO = today.toISOString().split('T')[0];
+document.getElementById('start-date').value = todayISO;
+document.getElementById('target-date').min = todayISO;
+
+// default days selected
+cfg.daysPerWeek = 4;
+
+renderDots(1);
+
+// Restore previous session if available
+const savedCfg = localStorage.getItem('gen_cfg');
+const savedSched = localStorage.getItem('gen_schedule');
+if (savedCfg && savedSched) {
+  try {
+    Object.assign(cfg, JSON.parse(savedCfg));
+    generatedSchedule = JSON.parse(savedSched);
+    generatedSchedule.config = cfg;
+    document.getElementById('step-1').classList.add('hidden');
+    renderScheduleView(generatedSchedule);
+    document.getElementById('schedule-view').classList.add('visible');
+  } catch(e) { /* fresh start */ }
+}
+</script>
+</body>
+</html>
