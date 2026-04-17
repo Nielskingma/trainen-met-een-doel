@@ -825,10 +825,10 @@ function buildPerActivityUI() {
 
 function adjustActivity(act, delta) {
   const cur = profile.tuning.activitySessions[act] || 1;
-  const maxTotal = Math.min(parseInt(profile.dagen) || 6, 6);
+  const maxTotal = Math.min(parseInt(profile.dagen) || 7, 7);
   const total = Object.values(profile.tuning.activitySessions).reduce((s,v)=>s+v,0);
   const newVal = Math.max(1, cur + delta);
-  if (delta > 0 && total >= maxTotal) return; // cap at available days
+  if (delta > 0 && total >= maxTotal) return; // cap at available days (max 7)
   profile.tuning.activitySessions[act] = newVal;
   profile.tuning.sessies = Object.values(profile.tuning.activitySessions).reduce((s,v)=>s+v,0);
   const el = document.getElementById('act-count-' + act);

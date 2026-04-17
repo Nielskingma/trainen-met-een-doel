@@ -188,10 +188,12 @@ function adjustAndRegen(activity, delta) {
 
   if (activity) {
     const cur = p.tuning.activitySessions[activity] || 1;
+    const total = Object.values(p.tuning.activitySessions).reduce((s,v)=>s+v,0);
+    if (delta > 0 && total >= 7) return; // max 7 dagen per week
     p.tuning.activitySessions[activity] = Math.max(1, cur + delta);
     p.tuning.sessies = Object.values(p.tuning.activitySessions).reduce((s,v)=>s+v,0);
   } else {
-    p.tuning.sessies = Math.max(1, Math.min(6, (p.tuning.sessies||3) + delta));
+    p.tuning.sessies = Math.max(1, Math.min(7, (p.tuning.sessies||3) + delta));
   }
 
   // Re-generate
