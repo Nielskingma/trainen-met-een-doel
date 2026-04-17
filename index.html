@@ -8,6 +8,7 @@
 <title>Trainen met een doel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="design.css">
 <style>
   :root {
     --bg: #0d1117; --surface: #161b22; --surface2: #1f2730;
@@ -20,8 +21,8 @@
   body {
     background: var(--bg); color: var(--text);
     font-family: var(--mono); min-height: 100vh;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    padding: 24px 20px 48px;
+    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+    padding: 48px 20px 64px;
   }
   body::before {
     content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
