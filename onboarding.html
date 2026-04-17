@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Maak jouw schema — Trainen met een doel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117; --surface: #161b22; --surface2: #1f2730;
+  --border: #556070; --accent: #4ade80; --accent2: #86efac;
+  --warn: #fbbf24; --danger: #f87171; --text: #ffffff; --muted: #8b949e;
+  --mono: 'DM Mono', monospace; --serif: 'Fraunces', serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--text); font-family: var(--mono); overflow-x: hidden; }
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: linear-gradient(rgba(74,222,128,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(74,222,128,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── STEPS ── */
+.step {
+  position: fixed; inset: 0; overflow-y: auto; z-index: 10;
+  background: var(--bg); padding-bottom: 100px;
+  transition: transform 0.32s cubic-bezier(.4,0,.2,1), opacity 0.32s ease;
+}
+.step.slide-out-left  { transform: translateX(-100%); opacity: 0; pointer-events: none; }
+.step.slide-out-right { transform: translateX(100%);  opacity: 0; pointer-events: none; }
+.step.hidden { display: none; }
+
+.step-inner { max-width: 480px; margin: 0 auto; padding: 0 20px; position: relative; z-index: 1; }
+
+.step-progress { display: flex; gap: 6px; padding: 24px 0 20px; align-items: center; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); transition: all .3s; flex-shrink: 0; }
+.dot.active { background: var(--accent); width: 20px; border-radius: 99px; }
+.dot.done { background: var(--accent2); }
+.step-count { margin-left: auto; font-size: 10px; color: var(--muted); letter-spacing: .05em; }
+
+.btn-back {
+  background: none; border: none; color: var(--muted); font-family: var(--mono);
+  font-size: 11px; letter-spacing: .1em; text-transform: uppercase;
+  cursor: pointer; padding: 0; margin-bottom: 16px; display: flex; align-items: center; gap: 6px;
+}
+.btn-back:hover { color: var(--text); }
+
+.step-eyebrow { font-size: 10px; letter-spacing: .25em; color: var(--accent); text-transform: uppercase; margin-bottom: 6px; }
+.step-title { font-family: var(--serif); font-size: 28px; font-weight: 700; line-height: 1.2; margin-bottom: 6px; }
+.step-title em { font-style: italic; color: var(--accent); }
+.step-sub { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 28px; }
+
+/* ── CHOICE CARDS ── */
+.card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
+.card-grid.single-col { grid-template-columns: 1fr; }
+
+.choice-card {
+  background: var(--surface); border: 2px solid var(--border);
+  border-radius: 16px; padding: 18px 14px; cursor: pointer;
+  transition: border-color .2s, background .2s, transform .1s;
+  display: flex; flex-direction: column; gap: 5px;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.choice-card:hover { border-color: var(--accent); background: rgba(74,222,128,.05); }
+.choice-card:active { transform: scale(.97); }
+.choice-card.selected { border-color: var(--accent); background: rgba(74,222,128,.08); }
+.choice-card.selected .cc-title { color: var(--accent); }
+.cc-icon { font-size: 28px; margin-bottom: 4px; }
+.cc-title { font-family: var(--serif); font-size: 15px; font-weight: 700; line-height: 1.2; }
+.cc-sub { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.cc-check { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border); margin-left: auto; margin-top: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .2s; }
+.choice-card.selected .cc-check { background: var(--accent); border-color: var(--accent); }
+.cc-check::after { content: ''; width: 5px; height: 9px; border: 2px solid #0d1117; border-top: none; border-left: none; transform: rotate(45deg) translateY(-1px); opacity: 0; transition: opacity .2s; }
+.choice-card.selected .cc-check::after { opacity: 1; }
+
+/* ── FORM ── */
+.form-block { margin-bottom: 22px; }
+.form-label { display: block; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.form-label .optional { font-size: 9px; color: var(--border); margin-left: 6px; text-transform: none; letter-spacing: 0; }
+.form-input {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; color: var(--text);
+  font-family: var(--mono); font-size: 15px; outline: none; transition: border-color .2s;
+  -webkit-appearance: none;
+}
+.form-input:focus { border-color: var(--accent); }
+.form-row { display: flex; gap: 10px; }
+.form-row .form-block { flex: 1; }
+
+.num-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.num-btn {
+  flex: 1; min-width: 40px; padding: 12px 4px; text-align: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  cursor: pointer; font-family: var(--mono); font-size: 15px; color: var(--muted);
+  transition: all .2s; -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.num-btn:hover { border-color: var(--accent); color: var(--text); }
+.num-btn.selected { border-color: var(--accent); background: rgba(74,222,128,.08); color: var(--accent); font-weight: 500; }
+
+.dist-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.dist-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 14px; cursor: pointer;
+  font-family: var(--mono); font-size: 13px; color: var(--muted);
+  transition: all .2s; -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.dist-btn:hover { border-color: var(--accent); color: var(--text); }
+.dist-btn.selected { border-color: var(--accent); background: rgba(74,222,128,.08); color: var(--accent); font-weight: 500; }
+
+.cond-block { display: none; }
+.cond-block.visible { display: block; }
+
+.section-divider { border: none; border-top: 1px solid var(--border); margin: 28px 0 24px; }
+.section-heading { font-size: 10px; letter-spacing: .2em; color: var(--accent); text-transform: uppercase; margin-bottom: 20px; }
+
+/* injury tags */
+.tag-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.injury-tag {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 99px;
+  padding: 7px 14px; cursor: pointer; font-family: var(--mono); font-size: 12px; color: var(--muted);
+  transition: all .2s; -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.injury-tag:hover { border-color: var(--warn); color: var(--warn); }
+.injury-tag.selected { border-color: var(--warn); background: rgba(251,191,36,.08); color: var(--warn); }
+
+/* session time */
+.time-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.time-btn {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 10px; cursor: pointer; font-family: var(--mono); font-size: 12px; color: var(--muted);
+  text-align: center; transition: all .2s; -webkit-tap-highlight-color: transparent; user-select: none;
+  line-height: 1.4;
+}
+.time-btn:hover { border-color: var(--accent); color: var(--text); }
+.time-btn.selected { border-color: var(--accent); background: rgba(74,222,128,.08); color: var(--accent); }
+
+/* ── CTA ── */
+.btn-cta {
+  display: block; width: 100%; padding: 18px; border-radius: 14px; border: none;
+  font-family: var(--mono); font-size: 13px; letter-spacing: .1em; text-transform: uppercase;
+  cursor: pointer; transition: all .2s; background: var(--accent); color: #0d1117; font-weight: 500;
+  margin-top: 8px; -webkit-tap-highlight-color: transparent;
+}
+.btn-cta:hover { background: var(--accent2); }
+.btn-cta:disabled { opacity: .4; cursor: not-allowed; background: var(--border); color: var(--muted); }
+.btn-outline {
+  display: block; width: 100%; padding: 14px; border-radius: 12px;
+  border: 1px solid var(--border); background: none; color: var(--muted);
+  font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase;
+  cursor: pointer; transition: all .2s; margin-top: 10px; -webkit-tap-highlight-color: transparent;
+}
+.btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+.info-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+.info-box strong { color: var(--accent); }
+
+/* ── STAP 4: PROFIEL + TUNING ── */
+#step-4 .profile-summary {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+  padding: 20px; margin-bottom: 24px;
+}
+.profile-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.profile-tag {
+  font-size: 10px; padding: 3px 10px; border-radius: 99px;
+  background: rgba(74,222,128,.1); color: var(--accent); border: 1px solid rgba(74,222,128,.3);
+}
+
+.tuning-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px; margin-bottom: 12px;
+}
+.tuning-label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+.tuning-label span { color: var(--accent); font-family: var(--serif); font-size: 16px; font-weight: 700; text-transform: none; letter-spacing: 0; }
+
+input[type=range] {
+  width: 100%; accent-color: var(--accent); cursor: pointer;
+  height: 4px; border-radius: 99px;
+}
+.range-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 6px; }
+
+.schema-cta-wrap { margin-top: 28px; }
+.schema-cta-intro { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; text-align: center; }
+
+/* privacy note */
+.privacy-note { text-align: center; font-size: 10px; color: var(--muted); opacity: .5; margin-top: 16px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<!-- ── STAP 1: DOEL ── -->
+<div class="step" id="step-1">
+  <div class="step-inner">
+    <div class="step-progress">
+      <div class="dot active" id="d1-1"></div>
+      <div class="dot" id="d1-2"></div>
+      <div class="dot" id="d1-3"></div>
+      <div class="dot" id="d1-4"></div>
+      <div class="step-count">Stap 1 / 4</div>
+    </div>
+    <div class="step-eyebrow">Jouw doel</div>
+    <h1 class="step-title">Wat wil je <em>bereiken?</em></h1>
+    <p class="step-sub">Kies alles wat van toepassing is. Je kunt meerdere doelen aanvinken.</p>
+
+    <div class="card-grid">
+      <div class="choice-card" data-val="presteren" onclick="toggleGoal(this)">
+        <div class="cc-icon">🏅</div>
+        <div class="cc-title">Presteren</div>
+        <div class="cc-sub">Wedstrijd, afstand of tijd halen</div>
+        <div class="cc-check"></div>
+      </div>
+      <div class="choice-card" data-val="fitter" onclick="toggleGoal(this)">
+        <div class="cc-icon">⚡</div>
+        <div class="cc-title">Fitter worden</div>
+        <div class="cc-sub">Meer energie, beter in mijn vel</div>
+        <div class="cc-check"></div>
+      </div>
+      <div class="choice-card" data-val="sterker" onclick="toggleGoal(this)">
+        <div class="cc-icon">💪</div>
+        <div class="cc-title">Sterker worden</div>
+        <div class="cc-sub">Spierkracht en lichaamssamenstelling</div>
+        <div class="cc-check"></div>
+      </div>
+      <div class="choice-card" data-val="bewegen" onclick="toggleGoal(this)">
+        <div class="cc-icon">🚶</div>
+        <div class="cc-title">Meer bewegen</div>
+        <div class="cc-sub">Laagdrempelig, geen groot doel</div>
+        <div class="cc-check"></div>
+      </div>
+      <div class="choice-card" data-val="herstellen" onclick="toggleGoal(this)" style="grid-column: 1 / -1;">
+        <div class="cc-icon">🌱</div>
+        <div class="cc-title">Herstellen / flexibiliteit</div>
+        <div class="cc-sub">Na blessure, mobiliteit verbeteren, stress verminderen</div>
+        <div class="cc-check"></div>
+      </div>
+    </div>
+
+    <button class="btn-cta" id="s1-next" onclick="goTo(2)" disabled>Volgende →</button>
+    <button class="btn-outline" onclick="window.location='schema.html'">Liever een kant-en-klaar schema kiezen</button>
+  </div>
+</div>
+
+<!-- ── STAP 2: ACTIVITEIT ── -->
+<div class="step hidden" id="step-2">
+  <div class="step-inner">
+    <div class="step-progress">
+      <div class="dot done" id="d2-1"></div>
+      <div class="dot active" id="d2-2"></div>
+      <div class="dot" id="d2-3"></div>
+      <div class="dot" id="d2-4"></div>
+      <div class="step-count">Stap 2 / 4</div>
+    </div>
+    <button class="btn-back" onclick="goBack(1)">← Terug</button>
+    <div class="step-eyebrow">Activiteit</div>
+    <h1 class="step-title">Waarmee wil je <em>trainen?</em></h1>
+    <p class="step-sub">Kies één of meerdere activiteiten die bij jou passen.</p>
+
+    <div class="card-grid">
+      <div class="choice-card" data-val="hardlopen" onclick="toggleActivity(this)">
+        <div class="cc-icon">🏃</div>
+        <div class="cc-title">Hardlopen</div>
+        <div class="cc-sub">Op straat, park of atletiekbaan</div>
+        <div class="cc-check"></div>
+      </div>
+      <div class="choice-card" data-val="fietsen" onclick="toggleActivity(this)">
+        <div class="cc-icon">🚴</div>
+        <div class="cc-title">Fietsen</div>
+        <div class="cc-sub">Buiten of op de hometrainer</div>
+        <div class="cc-check"></div>
+      </div>
+      <div class="choice-card" data-val="zwemmen" onclick="toggleActivity(this)">
+        <div class="cc-icon">🏊</div>
+        <div class="cc-title">Zwemmen</div>
+        <div class="cc-sub">Baanzwemmen of open water</div>
+        <div class="cc-check"></div>
+      </div>
+      <div class="choice-card" data-val="kracht" onclick="toggleActivity(this)">
+        <div class="cc-icon">🏋️</div>
+        <div class="cc-title">Kracht</div>
+        <div class="cc-sub">Gewichten, machines of functioneel</div>
+        <div class="cc-check"></div>
+      </div>
+      <div class="choice-card" data-val="wandelen" onclick="toggleActivity(this)">
+        <div class="cc-icon">🥾</div>
+        <div class="cc-title">Wandelen</div>
+        <div class="cc-sub">Wandelen, nordic walking of trekking</div>
+        <div class="cc-check"></div>
+      </div>
+      <div class="choice-card" data-val="thuis" onclick="toggleActivity(this)">
+        <div class="cc-icon">🏠</div>
+        <div class="cc-title">Thuis / bodyweight</div>
+        <div class="cc-sub">Oefeningen, yoga of mobiliteit thuis</div>
+        <div class="cc-check"></div>
+      </div>
+    </div>
+
+    <button class="btn-cta" id="s2-next" onclick="goTo(3)" disabled>Volgende →</button>
+  </div>
+</div>
+
+<!-- ── STAP 3: PROFIEL ── -->
+<div class="step hidden" id="step-3">
+  <div class="step-inner">
+    <div class="step-progress">
+      <div class="dot done"></div>
+      <div class="dot done"></div>
+      <div class="dot active"></div>
+      <div class="dot"></div>
+      <div class="step-count">Stap 3 / 4</div>
+    </div>
+    <button class="btn-back" onclick="goBack(2)">← Terug</button>
+    <div class="step-eyebrow">Jouw situatie</div>
+    <h1 class="step-title">Vertel iets over <em>jezelf</em></h1>
+    <p class="step-sub">Hoe meer je invult, hoe beter het advies aansluit.</p>
+
+    <!-- BASIS -->
+    <div class="form-row">
+      <div class="form-block">
+        <label class="form-label">Leeftijd</label>
+        <input class="form-input" type="number" id="inp-leeftijd" min="10" max="99" placeholder="bijv. 35" oninput="checkStep3()">
+      </div>
+      <div class="form-block">
+        <label class="form-label">Geslacht <span class="optional">optioneel</span></label>
+        <select class="form-input" id="inp-geslacht" onchange="checkStep3()">
+          <option value="">— kies —</option>
+          <option value="man">Man</option>
+          <option value="vrouw">Vrouw</option>
+          <option value="anders">Anders / geen voorkeur</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-block">
+        <label class="form-label">Lengte <span class="optional">optioneel</span></label>
+        <input class="form-input" type="number" id="inp-lengte" min="100" max="220" placeholder="cm" oninput="checkStep3()">
+      </div>
+      <div class="form-block">
+        <label class="form-label">Gewicht <span class="optional">optioneel</span></label>
+        <input class="form-input" type="number" id="inp-gewicht" min="30" max="200" placeholder="kg" oninput="checkStep3()">
+      </div>
+    </div>
+
+    <div class="form-block">
+      <label class="form-label">Hoe actief ben je nu?</label>
+      <div class="num-row" id="actief-row">
+        <div class="num-btn" data-val="nauwelijks" onclick="selectSingle(this, 'actief-row', 'actief')">Nauwelijks</div>
+        <div class="num-btn" data-val="soms" onclick="selectSingle(this, 'actief-row', 'actief')">Soms</div>
+        <div class="num-btn" data-val="regelmatig" onclick="selectSingle(this, 'actief-row', 'actief')">Regelmatig</div>
+        <div class="num-btn" data-val="actief" onclick="selectSingle(this, 'actief-row', 'actief')">Actief</div>
+      </div>
+    </div>
+
+    <div class="form-block">
+      <label class="form-label">Hoeveel dagen per week kun je trainen?</label>
+      <div class="num-row" id="dagen-row">
+        <div class="num-btn" data-val="1" onclick="selectSingle(this, 'dagen-row', 'dagen')">1</div>
+        <div class="num-btn" data-val="2" onclick="selectSingle(this, 'dagen-row', 'dagen')">2</div>
+        <div class="num-btn" data-val="3" onclick="selectSingle(this, 'dagen-row', 'dagen')">3</div>
+        <div class="num-btn" data-val="4" onclick="selectSingle(this, 'dagen-row', 'dagen')">4</div>
+        <div class="num-btn" data-val="5" onclick="selectSingle(this, 'dagen-row', 'dagen')">5</div>
+        <div class="num-btn" data-val="6" onclick="selectSingle(this, 'dagen-row', 'dagen')">6</div>
+      </div>
+    </div>
+
+    <div class="form-block">
+      <label class="form-label">Hoeveel tijd per training?</label>
+      <div class="time-grid" id="tijd-row">
+        <div class="time-btn" data-val="20-30" onclick="selectSingle(this, 'tijd-row', 'tijd')">20–30 min<br><span style="font-size:10px;color:var(--muted)">Kort & efficiënt</span></div>
+        <div class="time-btn" data-val="45-60" onclick="selectSingle(this, 'tijd-row', 'tijd')">45–60 min<br><span style="font-size:10px;color:var(--muted)">Standaard</span></div>
+        <div class="time-btn" data-val="60-90" onclick="selectSingle(this, 'tijd-row', 'tijd')">60–90 min<br><span style="font-size:10px;color:var(--muted)">Ruim de tijd</span></div>
+        <div class="time-btn" data-val="nvt" onclick="selectSingle(this, 'tijd-row', 'tijd')">Geen voorkeur</div>
+      </div>
+    </div>
+
+    <div class="form-block">
+      <label class="form-label">Hoe lang wil je een schema volgen?</label>
+      <div class="num-row" id="duur-row">
+        <div class="num-btn" data-val="4" onclick="selectSingle(this, 'duur-row', 'duur')">4 wk</div>
+        <div class="num-btn" data-val="8" onclick="selectSingle(this, 'duur-row', 'duur')">8 wk</div>
+        <div class="num-btn" data-val="12" onclick="selectSingle(this, 'duur-row', 'duur')">12 wk</div>
+        <div class="num-btn" data-val="16" onclick="selectSingle(this, 'duur-row', 'duur')">16 wk</div>
+        <div class="num-btn" data-val="20" onclick="selectSingle(this, 'duur-row', 'duur')">20+ wk</div>
+      </div>
+    </div>
+
+    <!-- CONDITIONEEL: kracht / thuis → materiaal -->
+    <div class="cond-block" id="cond-materiaal">
+      <hr class="section-divider">
+      <div class="section-heading">Materiaal</div>
+      <div class="form-block">
+        <label class="form-label">Heb je toegang tot een sportschool?</label>
+        <div class="num-row" id="gym-row">
+          <div class="num-btn" data-val="ja" onclick="selectSingle(this, 'gym-row', 'gym')">Ja</div>
+          <div class="num-btn" data-val="soms" onclick="selectSingle(this, 'gym-row', 'gym')">Soms</div>
+          <div class="num-btn" data-val="nee" onclick="selectSingle(this, 'gym-row', 'gym')">Nee</div>
+        </div>
+      </div>
+      <div class="form-block">
+        <label class="form-label">Wat heb je thuis beschikbaar?</label>
+        <div class="tag-grid" id="materiaal-tags">
+          <div class="injury-tag" data-val="niets" onclick="toggleTag(this, 'materiaal')" style="--warn:#4ade80">Niets / alleen lichaam</div>
+          <div class="injury-tag" data-val="dumbbells" onclick="toggleTag(this, 'materiaal')" style="--warn:#4ade80">Dumbbells</div>
+          <div class="injury-tag" data-val="weerstandsbanden" onclick="toggleTag(this, 'materiaal')" style="--warn:#4ade80">Weerstandsbanden</div>
+          <div class="injury-tag" data-val="barbell" onclick="toggleTag(this, 'materiaal')" style="--warn:#4ade80">Barbell + rack</div>
+          <div class="injury-tag" data-val="mat" onclick="toggleTag(this, 'materiaal')" style="--warn:#4ade80">Yogamat</div>
+          <div class="injury-tag" data-val="volledig" onclick="toggleTag(this, 'materiaal')" style="--warn:#4ade80">Volledig uitgerust</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONDITIONEEL: presteren → huidig niveau + doel -->
+    <div class="cond-block" id="cond-presteren">
+      <hr class="section-divider">
+      <div class="section-heading">Jouw huidige prestaties</div>
+
+      <div class="cond-block" id="cond-hardlopen-perf">
+        <div class="form-block">
+          <label class="form-label">Hardlopen — langste afstand recent</label>
+          <div class="dist-row" id="hl-afstand-row">
+            <div class="dist-btn" data-val="2" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">2 km</div>
+            <div class="dist-btn" data-val="5" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">5 km</div>
+            <div class="dist-btn" data-val="10" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">10 km</div>
+            <div class="dist-btn" data-val="15" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">15 km</div>
+            <div class="dist-btn" data-val="21" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">21 km</div>
+            <div class="dist-btn" data-val="42" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">42 km</div>
+          </div>
+        </div>
+        <div class="form-block">
+          <label class="form-label">Huidig gemiddeld tempo</label>
+          <div class="dist-row" id="hl-tempo-row">
+            <div class="dist-btn" data-val="4:30" onclick="selectSingle(this,'hl-tempo-row','hl_tempo')">≤ 4:30/km</div>
+            <div class="dist-btn" data-val="5:00" onclick="selectSingle(this,'hl-tempo-row','hl_tempo')">5:00/km</div>
+            <div class="dist-btn" data-val="5:30" onclick="selectSingle(this,'hl-tempo-row','hl_tempo')">5:30/km</div>
+            <div class="dist-btn" data-val="6:00" onclick="selectSingle(this,'hl-tempo-row','hl_tempo')">6:00/km</div>
+            <div class="dist-btn" data-val="6:30" onclick="selectSingle(this,'hl-tempo-row','hl_tempo')">6:30/km</div>
+            <div class="dist-btn" data-val="7:00" onclick="selectSingle(this,'hl-tempo-row','hl_tempo')">≥ 7:00/km</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cond-block" id="cond-fietsen-perf">
+        <div class="form-block">
+          <label class="form-label">Fietsen — gemiddelde afstand per rit</label>
+          <div class="dist-row" id="ft-afstand-row">
+            <div class="dist-btn" data-val="20" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">< 20 km</div>
+            <div class="dist-btn" data-val="40" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">20–40 km</div>
+            <div class="dist-btn" data-val="60" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">40–60 km</div>
+            <div class="dist-btn" data-val="80" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">60–80 km</div>
+            <div class="dist-btn" data-val="100" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">80+ km</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cond-block" id="cond-zwemmen-perf">
+        <div class="form-block">
+          <label class="form-label">Zwemmen — afstand per sessie</label>
+          <div class="dist-row" id="zw-afstand-row">
+            <div class="dist-btn" data-val="500" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">< 500 m</div>
+            <div class="dist-btn" data-val="1000" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">500–1000 m</div>
+            <div class="dist-btn" data-val="1500" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">1–2 km</div>
+            <div class="dist-btn" data-val="3000" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">2+ km</div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="section-divider" style="margin-top:4px">
+      <div class="section-heading">Specifiek doel</div>
+      <div class="form-block">
+        <label class="form-label">Wat wil je bereiken? <span class="optional">optioneel</span></label>
+        <input class="form-input" type="text" id="inp-doel" placeholder="bijv. 10 km onder 55 min" oninput="checkStep3()">
+      </div>
+      <div class="form-block">
+        <label class="form-label">Wanneer? <span class="optional">optioneel</span></label>
+        <input class="form-input" type="date" id="inp-doeldatum" onchange="checkStep3()">
+      </div>
+    </div>
+
+    <!-- CONDITIONEEL: herstellen -->
+    <div class="cond-block" id="cond-herstellen">
+      <hr class="section-divider">
+      <div class="section-heading">Herstel</div>
+      <div class="form-block">
+        <label class="form-label">Waar herstel je van? <span class="optional">optioneel</span></label>
+        <input class="form-input" type="text" id="inp-herstel-van" placeholder="bijv. knieblessure, burn-out" oninput="checkStep3()">
+      </div>
+      <div class="form-block">
+        <label class="form-label">Hoe lang speelt dit al?</label>
+        <div class="dist-row" id="herstel-duur-row">
+          <div class="dist-btn" data-val="weken" onclick="selectSingle(this,'herstel-duur-row','herstel_duur')">Weken</div>
+          <div class="dist-btn" data-val="maanden" onclick="selectSingle(this,'herstel-duur-row','herstel_duur')">Maanden</div>
+          <div class="dist-btn" data-val="langer" onclick="selectSingle(this,'herstel-duur-row','herstel_duur')">Lang (> 1 jaar)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLESSURES (altijd zichtbaar) -->
+    <hr class="section-divider">
+    <div class="section-heading">Belasting & blessures</div>
+    <div class="form-block">
+      <label class="form-label">Terugkerende klachten <span class="optional">meerdere mogelijk</span></label>
+      <div class="tag-grid" id="injury-tags">
+        <div class="injury-tag" data-val="geen" onclick="toggleTag(this, 'injury')">Geen klachten</div>
+        <div class="injury-tag" data-val="knie" onclick="toggleTag(this, 'injury')">Knie</div>
+        <div class="injury-tag" data-val="enkel" onclick="toggleTag(this, 'injury')">Enkel</div>
+        <div class="injury-tag" data-val="heup" onclick="toggleTag(this, 'injury')">Heup</div>
+        <div class="injury-tag" data-val="rug" onclick="toggleTag(this, 'injury')">Rug</div>
+        <div class="injury-tag" data-val="schouder" onclick="toggleTag(this, 'injury')">Schouder</div>
+        <div class="injury-tag" data-val="shin" onclick="toggleTag(this, 'injury')">Scheenbeenvliesontsteking</div>
+        <div class="injury-tag" data-val="hart" onclick="toggleTag(this, 'injury')">Hart of bloeddruk</div>
+        <div class="injury-tag" data-val="anders" onclick="toggleTag(this, 'injury')">Anders</div>
+      </div>
+    </div>
+
+    <div class="info-box" style="margin-bottom:28px">
+      <strong>Privacy</strong> — Alle gegevens worden alleen lokaal op jouw apparaat opgeslagen. Er wordt niets verstuurd of bijgehouden.
+    </div>
+
+    <button class="btn-cta" id="s3-next" onclick="goTo(4)" disabled>Mijn schema samenstellen →</button>
+  </div>
+</div>
+
+<!-- ── STAP 4: PROFIEL + TUNING ── -->
+<div class="step hidden" id="step-4">
+  <div class="step-inner">
+    <div class="step-progress">
+      <div class="dot done"></div>
+      <div class="dot done"></div>
+      <div class="dot done"></div>
+      <div class="dot active"></div>
+      <div class="step-count">Stap 4 / 4</div>
+    </div>
+    <button class="btn-back" onclick="goBack(3)">← Terug</button>
+    <div class="step-eyebrow">Jouw schema</div>
+    <h1 class="step-title">Stel jouw <em>schema</em> af</h1>
+    <p class="step-sub">Op basis van jouw profiel. Pas de knoppen aan naar wens.</p>
+
+    <div class="profile-summary">
+      <div style="font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Jouw profiel</div>
+      <div id="profile-name" style="font-family:var(--serif);font-size:18px;font-weight:700;line-height:1.2;margin-bottom:4px"></div>
+      <div id="profile-desc" style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:10px"></div>
+      <div class="profile-tags" id="profile-tags"></div>
+    </div>
+
+    <!-- TUNING: opbouwcurve -->
+    <div class="tuning-card">
+      <div class="tuning-label">Opbouwcurve <span id="curve-label">Gemiddeld</span></div>
+      <input type="range" min="1" max="5" value="3" id="curve-slider" oninput="updateCurve(this.value)">
+      <div class="range-labels"><span>Rustig opbouwen</span><span>Snel opbouwen</span></div>
+    </div>
+
+    <!-- TUNING: schemaduur -->
+    <div class="tuning-card">
+      <div class="tuning-label">Schemaduur <span id="duur-label">12 weken</span></div>
+      <div class="num-row" id="duur-tuning-row">
+        <div class="num-btn" data-val="4" onclick="selectSingle(this,'duur-tuning-row','tuning_duur');updateDuurLabel(4)">4 wk</div>
+        <div class="num-btn" data-val="8" onclick="selectSingle(this,'duur-tuning-row','tuning_duur');updateDuurLabel(8)">8 wk</div>
+        <div class="num-btn selected" data-val="12" onclick="selectSingle(this,'duur-tuning-row','tuning_duur');updateDuurLabel(12)">12 wk</div>
+        <div class="num-btn" data-val="16" onclick="selectSingle(this,'duur-tuning-row','tuning_duur');updateDuurLabel(16)">16 wk</div>
+        <div class="num-btn" data-val="20" onclick="selectSingle(this,'duur-tuning-row','tuning_duur');updateDuurLabel(20)">20 wk</div>
+      </div>
+    </div>
+
+    <!-- TUNING: trainingen per week -->
+    <div class="tuning-card">
+      <div class="tuning-label">Trainingen per week <span id="sessies-label">3×</span></div>
+      <div class="num-row" id="sessies-tuning-row">
+        <div class="num-btn" data-val="1" onclick="selectSingle(this,'sessies-tuning-row','tuning_sessies');updateSessiesLabel(1)">1×</div>
+        <div class="num-btn" data-val="2" onclick="selectSingle(this,'sessies-tuning-row','tuning_sessies');updateSessiesLabel(2)">2×</div>
+        <div class="num-btn selected" data-val="3" onclick="selectSingle(this,'sessies-tuning-row','tuning_sessies');updateSessiesLabel(3)">3×</div>
+        <div class="num-btn" data-val="4" onclick="selectSingle(this,'sessies-tuning-row','tuning_sessies');updateSessiesLabel(4)">4×</div>
+        <div class="num-btn" data-val="5" onclick="selectSingle(this,'sessies-tuning-row','tuning_sessies');updateSessiesLabel(5)">5×</div>
+      </div>
+    </div>
+
+    <!-- TUNING: focus cardio vs kracht -->
+    <div class="tuning-card" id="tuning-focus-card">
+      <div class="tuning-label">Focus <span id="focus-label">Gebalanceerd</span></div>
+      <input type="range" min="1" max="5" value="3" id="focus-slider" oninput="updateFocus(this.value)">
+      <div class="range-labels"><span>Cardio / uithoudingsvermogen</span><span>Kracht / spieren</span></div>
+    </div>
+
+    <div class="schema-cta-wrap">
+      <p class="schema-cta-intro">Jouw profiel is opgeslagen. Klik hieronder om het schema te genereren.</p>
+      <button class="btn-cta" onclick="generateSchema()">Schema genereren →</button>
+      <button class="btn-outline" onclick="window.location='schema.html'">Bekijk kant-en-klare schema's</button>
+    </div>
+
+    <p class="privacy-note">Jouw gegevens worden alleen lokaal opgeslagen op dit apparaat.<br>Niets wordt verstuurd of gedeeld.</p>
+  </div>
+</div>
+
+<script>
+// ── STATE ──
+const profile = {
+  goals: [],
+  activities: [],
+  leeftijd: null, geslacht: '', lengte: null, gewicht: null,
+  actief: null, dagen: null, tijd: null, duur: null,
+  gym: null, materiaal: [],
+  hl_afstand: null, hl_tempo: null,
+  ft_afstand: null, zw_afstand: null,
+  doel: '', doeldatum: '',
+  herstel_van: '', herstel_duur: null,
+  injury: [],
+  tuning: { curve: 3, duur: 12, sessies: 3, focus: 3 }
+};
+
+// load from localStorage
+(function() {
+  try {
+    const saved = localStorage.getItem('tmg_profile');
+    if (saved) Object.assign(profile, JSON.parse(saved));
+    restoreUI();
+  } catch(e) {}
+})();
+
+function save() {
+  try { localStorage.setItem('tmg_profile', JSON.stringify(profile)); } catch(e) {}
+}
+
+// ── NAVIGATION ──
+let currentStep = 1;
+
+function goTo(n) {
+  const from = document.getElementById('step-' + currentStep);
+  const to   = document.getElementById('step-' + n);
+  const fwd  = n > currentStep;
+  from.classList.add(fwd ? 'slide-out-left' : 'slide-out-right');
+  to.classList.remove('hidden');
+  requestAnimationFrame(() => {
+    to.style.transform = fwd ? 'translateX(100%)' : 'translateX(-100%)';
+    to.style.opacity = '0';
+    requestAnimationFrame(() => {
+      to.style.transition = 'transform 0.32s cubic-bezier(.4,0,.2,1), opacity 0.32s ease';
+      to.style.transform = '';
+      to.style.opacity = '';
+    });
+  });
+  setTimeout(() => { from.classList.add('hidden'); from.classList.remove('slide-out-left','slide-out-right'); }, 340);
+  currentStep = n;
+  if (n === 3) updateCondBlocks();
+  if (n === 4) buildStep4();
+  window.scrollTo(0, 0);
+  save();
+}
+
+function goBack(n) {
+  goTo(n);
+}
+
+// ── STEP 1: GOALS ──
+function toggleGoal(el) {
+  const val = el.dataset.val;
+  el.classList.toggle('selected');
+  if (el.classList.contains('selected')) {
+    if (!profile.goals.includes(val)) profile.goals.push(val);
+  } else {
+    profile.goals = profile.goals.filter(v => v !== val);
+  }
+  document.getElementById('s1-next').disabled = profile.goals.length === 0;
+  save();
+}
+
+// ── STEP 2: ACTIVITIES ──
+function toggleActivity(el) {
+  const val = el.dataset.val;
+  el.classList.toggle('selected');
+  if (el.classList.contains('selected')) {
+    if (!profile.activities.includes(val)) profile.activities.push(val);
+  } else {
+    profile.activities = profile.activities.filter(v => v !== val);
+  }
+  document.getElementById('s2-next').disabled = profile.activities.length === 0;
+  save();
+}
+
+// ── STEP 3 HELPERS ──
+function selectSingle(el, rowId, key) {
+  document.querySelectorAll('#' + rowId + ' .num-btn, #' + rowId + ' .dist-btn, #' + rowId + ' .time-btn')
+    .forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  profile[key] = el.dataset.val;
+  checkStep3();
+  save();
+}
+
+function toggleTag(el, group) {
+  el.classList.toggle('selected');
+  const key = group === 'injury' ? 'injury' : 'materiaal';
+  const val = el.dataset.val;
+  if (el.classList.contains('selected')) {
+    if (!profile[key].includes(val)) profile[key].push(val);
+  } else {
+    profile[key] = profile[key].filter(v => v !== val);
+  }
+  save();
+}
+
+function checkStep3() {
+  profile.leeftijd = document.getElementById('inp-leeftijd').value || null;
+  profile.geslacht = document.getElementById('inp-geslacht').value;
+  profile.lengte   = document.getElementById('inp-lengte').value || null;
+  profile.gewicht  = document.getElementById('inp-gewicht').value || null;
+  profile.doel     = document.getElementById('inp-doel').value;
+  profile.doeldatum = document.getElementById('inp-doeldatum').value;
+  profile.herstel_van = document.getElementById('inp-herstel-van').value;
+  const ok = profile.leeftijd && profile.actief && profile.dagen && profile.tijd && profile.duur;
+  document.getElementById('s3-next').disabled = !ok;
+  save();
+}
+
+function updateCondBlocks() {
+  const hasMat    = profile.activities.includes('kracht') || profile.activities.includes('thuis');
+  const hasPerf   = profile.goals.includes('presteren');
+  const hasRecover = profile.goals.includes('herstellen');
+  const hasHL     = profile.activities.includes('hardlopen');
+  const hasFT     = profile.activities.includes('fietsen');
+  const hasZW     = profile.activities.includes('zwemmen');
+
+  toggle('cond-materiaal', hasMat);
+  toggle('cond-presteren', hasPerf);
+  toggle('cond-herstellen', hasRecover);
+  toggle('cond-hardlopen-perf', hasPerf && hasHL);
+  toggle('cond-fietsen-perf',   hasPerf && hasFT);
+  toggle('cond-zwemmen-perf',   hasPerf && hasZW);
+}
+
+function toggle(id, show) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('visible', show);
+}
+
+// ── STEP 4 ──
+function buildStep4() {
+  // sync tuning defaults from step 3 answers
+  if (profile.duur) profile.tuning.duur = parseInt(profile.duur);
+  if (profile.dagen) profile.tuning.sessies = Math.min(parseInt(profile.dagen), 5);
+
+  // preset UI
+  preselectTuning('duur-tuning-row',    'tuning_duur',    String(profile.tuning.duur));
+  preselectTuning('sessies-tuning-row', 'tuning_sessies', String(profile.tuning.sessies));
+  document.getElementById('curve-slider').value = profile.tuning.curve;
+  document.getElementById('focus-slider').value = profile.tuning.focus;
+  document.getElementById('duur-label').textContent    = profile.tuning.duur + ' weken';
+  document.getElementById('sessies-label').textContent = profile.tuning.sessies + '×';
+  updateCurve(profile.tuning.curve);
+  updateFocus(profile.tuning.focus);
+
+  // focus card only relevant when mix of cardio + kracht
+  const showFocus = (profile.activities.includes('kracht') || profile.activities.includes('thuis')) &&
+                    (profile.activities.includes('hardlopen') || profile.activities.includes('fietsen') ||
+                     profile.activities.includes('zwemmen') || profile.activities.includes('wandelen'));
+  document.getElementById('tuning-focus-card').style.display = showFocus ? 'block' : 'none';
+
+  // profile summary
+  const name = buildProfileName();
+  const desc = buildProfileDesc();
+  const tags = buildProfileTags();
+  document.getElementById('profile-name').textContent = name;
+  document.getElementById('profile-desc').textContent = desc;
+  const tagsEl = document.getElementById('profile-tags');
+  tagsEl.innerHTML = tags.map(t => `<span class="profile-tag">${t}</span>`).join('');
+}
+
+function preselectTuning(rowId, key, val) {
+  document.querySelectorAll('#' + rowId + ' .num-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.val === val);
+  });
+  profile[key] = val;
+}
+
+const curveLabels = ['', 'Rustig opbouwen', 'Geleidelijk', 'Gemiddeld', 'Progressief', 'Snel opbouwen'];
+const focusLabels = ['', 'Puur cardio', 'Cardio-gericht', 'Gebalanceerd', 'Kracht-gericht', 'Puur kracht'];
+
+function updateCurve(v) {
+  profile.tuning.curve = parseInt(v);
+  document.getElementById('curve-label').textContent = curveLabels[v];
+  save();
+}
+function updateFocus(v) {
+  profile.tuning.focus = parseInt(v);
+  document.getElementById('focus-label').textContent = focusLabels[v];
+  save();
+}
+function updateDuurLabel(v) {
+  profile.tuning.duur = v;
+  document.getElementById('duur-label').textContent = v + ' weken';
+  save();
+}
+function updateSessiesLabel(v) {
+  profile.tuning.sessies = v;
+  document.getElementById('sessies-label').textContent = v + '×';
+  save();
+}
+
+const goalLabels     = { presteren:'Presteren', fitter:'Fitter worden', sterker:'Sterker worden', bewegen:'Meer bewegen', herstellen:'Herstellen' };
+const activityLabels = { hardlopen:'🏃 Hardlopen', fietsen:'🚴 Fietsen', zwemmen:'🏊 Zwemmen', kracht:'🏋️ Kracht', wandelen:'🥾 Wandelen', thuis:'🏠 Thuis' };
+const activityNames  = { hardlopen:'hardloper', fietsen:'fietser', zwemmen:'zwemmer', kracht:'krachtsporter', wandelen:'wandelaar', thuis:'thuis-sporter' };
+const niveauMap      = { nauwelijks:'beginner', soms:'licht actief', regelmatig:'regelmatig actief', actief:'actief' };
+
+function buildProfileName() {
+  if (profile.goals.includes('presteren') && profile.activities[0]) {
+    return 'Prestatiegerichte ' + (activityNames[profile.activities[0]] || 'sporter');
+  }
+  if (profile.goals.includes('sterker')) return 'Krachtsport profiel';
+  if (profile.goals.includes('herstellen')) return 'Herstel & mobiliteit profiel';
+  if (profile.goals.includes('bewegen')) return 'Actief bewegen profiel';
+  if (profile.activities.length === 1) return (activityNames[profile.activities[0]] || 'sporter') + ' profiel';
+  return 'Persoonlijk trainersprofiel';
+}
+
+function buildProfileDesc() {
+  const parts = [];
+  if (profile.leeftijd) parts.push(profile.leeftijd + ' jaar');
+  if (profile.actief) parts.push(niveauMap[profile.actief] || profile.actief);
+  if (profile.dagen) parts.push(profile.dagen + ' dagen/week beschikbaar');
+  if (profile.tijd && profile.tijd !== 'nvt') parts.push(profile.tijd + ' min per sessie');
+  return parts.join(' · ');
+}
+
+function buildProfileTags() {
+  const tags = [];
+  profile.goals.forEach(g => tags.push(goalLabels[g] || g));
+  profile.activities.forEach(a => tags.push(activityLabels[a] || a));
+  if (profile.injury.length > 0 && !profile.injury.includes('geen')) {
+    tags.push('⚠️ Aandachtspunten');
+  }
+  return tags;
+}
+
+function generateSchema() {
+  save();
+  // placeholder — in de toekomst naar de generator met profiel als querystring
+  alert('Schema genereren komt binnenkort. Jouw profiel is opgeslagen!');
+}
+
+// ── RESTORE UI FROM SAVED PROFILE ──
+function restoreUI() {
+  // goals
+  document.querySelectorAll('#step-1 .choice-card').forEach(el => {
+    if (profile.goals.includes(el.dataset.val)) el.classList.add('selected');
+  });
+  document.getElementById('s1-next').disabled = profile.goals.length === 0;
+
+  // activities
+  document.querySelectorAll('#step-2 .choice-card').forEach(el => {
+    if (profile.activities.includes(el.dataset.val)) el.classList.add('selected');
+  });
+  document.getElementById('s2-next').disabled = profile.activities.length === 0;
+
+  // step 3 inputs
+  if (profile.leeftijd) document.getElementById('inp-leeftijd').value = profile.leeftijd;
+  if (profile.geslacht) document.getElementById('inp-geslacht').value = profile.geslacht;
+  if (profile.lengte)   document.getElementById('inp-lengte').value   = profile.lengte;
+  if (profile.gewicht)  document.getElementById('inp-gewicht').value  = profile.gewicht;
+  if (profile.doel)     document.getElementById('inp-doel').value     = profile.doel;
+  if (profile.doeldatum) document.getElementById('inp-doeldatum').value = profile.doeldatum;
+  if (profile.herstel_van) document.getElementById('inp-herstel-van').value = profile.herstel_van;
+
+  const singles = ['actief','dagen','tijd','duur','gym','hl_afstand','hl_tempo','ft_afstand','zw_afstand','herstel_duur','tuning_duur','tuning_sessies'];
+  singles.forEach(key => {
+    if (!profile[key]) return;
+    document.querySelectorAll('[data-val="' + profile[key] + '"]').forEach(el => {
+      const row = el.closest('.num-row, .dist-row, .time-grid');
+      if (row && (row.id === key + '-row' || row.id === key.replace('_','-') + '-row')) el.classList.add('selected');
+    });
+  });
+
+  ['injury','materiaal'].forEach(group => {
+    const arr = profile[group] || [];
+    arr.forEach(val => {
+      const el = document.querySelector(`[data-val="${val}"].injury-tag`);
+      if (el) el.classList.add('selected');
+    });
+  });
+
+  checkStep3();
+}
+</script>
+</body>
+</html>
