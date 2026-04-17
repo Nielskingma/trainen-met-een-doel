@@ -832,10 +832,530 @@ function buildProfileTags() {
   return tags;
 }
 
+// ═══════════════════════════════════════════════════
+//  SCHEMA GENERATOR
+// ═══════════════════════════════════════════════════
+
 function generateSchema() {
   save();
-  // placeholder — in de toekomst naar de generator met profiel als querystring
-  alert('Schema genereren komt binnenkort. Jouw profiel is opgeslagen!');
+  const type = determineSchemaType(profile);
+  let weeks = [];
+  if      (type === 'running')  weeks = genRunning(profile);
+  else if (type === 'cycling')  weeks = genCycling(profile);
+  else if (type === 'strength') weeks = genStrength(profile);
+  else if (type === 'recovery') weeks = genRecovery(profile);
+  else if (type === 'walking')  weeks = genWalking(profile);
+  else if (type === 'combo')    weeks = genCombo(profile);
+  else                          weeks = genRunning(profile); // fallback
+
+  const schema = {
+    title:     buildSchemaTitle(type),
+    subtitle:  buildSchemaSubtitle(type),
+    type,
+    profile:   JSON.parse(JSON.stringify(profile)),
+    weeks,
+    generated: new Date().toISOString(),
+    startDate: new Date().toISOString()
+  };
+  localStorage.setItem('tmg_generated_schema', JSON.stringify(schema));
+  window.location.href = 'mijn-schema.html';
+}
+
+// ── TYPE DETECTION ──────────────────────────────────
+function determineSchemaType(p) {
+  const a = p.activities, g = p.goals;
+  if (g.includes('herstellen') && !g.includes('presteren')) return 'recovery';
+  const hasRun  = a.includes('hardlopen');
+  const hasBike = a.includes('fietsen') || a.includes('zwemmen');
+  const hasStr  = a.includes('kracht') || a.includes('thuis');
+  const hasWalk = a.includes('wandelen');
+  if (hasRun && hasStr && p.tuning.focus === 3) return 'combo';
+  if (hasRun && hasStr && p.tuning.focus <= 2)  return 'running';
+  if (hasRun && hasStr && p.tuning.focus >= 4)  return 'strength';
+  if (hasRun)  return 'running';
+  if (hasBike) return 'cycling';
+  if (hasStr)  return 'strength';
+  if (hasWalk || g.includes('bewegen')) return 'walking';
+  return 'running';
+}
+
+// ── SCHEMA TITLES ───────────────────────────────────
+function buildSchemaTitle(type) {
+  const g = profile.goals, a = profile.activities;
+  if (type === 'running') {
+    if (g.includes('presteren') && profile.doel) return profile.doel;
+    if (g.includes('presteren')) return 'Hardloop prestatieplan';
+    return 'Hardloop opbouwplan';
+  }
+  if (type === 'cycling') {
+    if (a.includes('zwemmen')) return 'Zwem & fiets opbouwplan';
+    return 'Fiets opbouwplan';
+  }
+  if (type === 'strength') {
+    if (a.includes('thuis') && !a.includes('kracht')) return 'Thuis trainingsplan';
+    return 'Kracht & conditieplan';
+  }
+  if (type === 'recovery') return 'Herstel & mobiliteitsplan';
+  if (type === 'walking')  return 'Actief bewegingsplan';
+  if (type === 'combo')    return 'Kracht & conditieplan';
+  return 'Persoonlijk trainingsplan';
+}
+function buildSchemaSubtitle(type) {
+  const levelMap = {nauwelijks:'beginner', soms:'licht actief', regelmatig:'actief', actief:'gevorderd'};
+  const lvl = levelMap[profile.actief] || '';
+  const wk  = profile.tuning.duur + ' weken';
+  const sx  = profile.tuning.sessies + 'x per week';
+  return [lvl, wk, sx].filter(Boolean).join(' · ');
+}
+
+// ── HELPERS ─────────────────────────────────────────
+const RUN_DAYS_MAP = {
+  1: ['Zaterdag'],
+  2: ['Dinsdag','Zaterdag'],
+  3: ['Maandag','Woensdag','Zaterdag'],
+  4: ['Maandag','Woensdag','Vrijdag','Zondag'],
+  5: ['Maandag','Dinsdag','Donderdag','Vrijdag','Zondag']
+};
+const STR_DAYS_MAP = {
+  1: ['Dinsdag'],
+  2: ['Maandag','Donderdag'],
+  3: ['Maandag','Woensdag','Vrijdag'],
+  4: ['Maandag','Dinsdag','Donderdag','Vrijdag'],
+  5: ['Maandag','Dinsdag','Woensdag','Vrijdag','Zaterdag']
+};
+const WALK_DAYS_MAP = {
+  1: ['Zaterdag'],
+  2: ['Woensdag','Zaterdag'],
+  3: ['Maandag','Woensdag','Zaterdag'],
+  4: ['Maandag','Woensdag','Vrijdag','Zaterdag'],
+  5: ['Maandag','Dinsdag','Donderdag','Vrijdag','Zaterdag']
+};
+
+function isRecoveryWeek(w, curve) {
+  const interval = curve <= 2 ? 4 : 3;
+  return w > 1 && w % interval === 0;
+}
+function isTaperWeek(w, total, isPerf) {
+  if (!isPerf || total < 6) return false;
+  return w >= total - (total >= 12 ? 2 : 1);
+}
+function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
+function round5(n) { return Math.round(n / 5) * 5; }
+
+// ── RUNNING GENERATOR ────────────────────────────────
+function genRunning(p) {
+  const total   = p.tuning.duur;
+  const sess    = clamp(p.tuning.sessies, 1, 5);
+  const curve   = p.tuning.curve;
+  const isPerf  = p.goals.includes('presteren');
+  const injKnie = p.injury.includes('knie') || p.injury.includes('shin');
+  const injHeup = p.injury.includes('heup');
+  const increaseRate = [null, 0.05, 0.07, 0.10, 0.12, 0.15][curve];
+  const days    = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
+
+  let startKm = runStartKm(p);
+  let curKm   = startKm;
+  let maxKm   = 0;
+  const weeks = [];
+
+  for (let w = 1; w <= total; w++) {
+    const recov = isRecoveryWeek(w, curve);
+    const taper = isTaperWeek(w, total, isPerf);
+    let weekKm;
+    if (taper)      weekKm = Math.round(maxKm * (w === total ? 0.45 : 0.65));
+    else if (recov) weekKm = Math.round(curKm * 0.70);
+    else            weekKm = Math.round(curKm);
+    maxKm = Math.max(maxKm, weekKm);
+
+    // introduce quality only from week 3 (or 2 if curve >= 4)
+    const qualityFrom = curve >= 4 ? 2 : 3;
+    const hasQuality  = !recov && !taper && w >= qualityFrom && sess >= 3;
+    const isLate      = w >= Math.round(total * 0.55);
+
+    const sessions = days.map((day, i) => {
+      const isLong = i === days.length - 1;
+      const isQual = hasQuality && i === 1;
+      return runSession(day, i, isLong, isQual, isLate, weekKm, sess, w, total, taper, recov, isPerf, injKnie, injHeup);
+    });
+
+    weeks.push({
+      weekNum: w,
+      weekType: taper ? 'taper' : recov ? 'recovery' : 'normal',
+      title: runWeekTitle(w, total, weekKm, recov, taper),
+      weekVolume: weekKm + ' km',
+      sessions
+    });
+
+    if (!recov && !taper) curKm *= (1 + increaseRate);
+  }
+  return weeks;
+}
+
+function runStartKm(p) {
+  const lvl  = {nauwelijks: 0.30, soms: 0.52, regelmatig: 0.78, actief: 1.0}[p.actief] || 0.52;
+  const dist = {2: 8, 5: 14, 10: 22, 15: 30, 21: 38, 42: 56}[p.hl_afstand] || 12;
+  const sf   = [null,0.75,0.85,1.0,1.10,1.20][clamp(p.tuning.sessies,1,5)];
+  return clamp(Math.round(dist * lvl * sf / 2) * 2, 6, 60);
+}
+
+function runSession(day, idx, isLong, isQual, isLate, weekKm, sess, w, total, taper, recov, isPerf, injKnie, injHeup) {
+  if (taper && w === total && isLong && isPerf) {
+    return { day, name: 'Wedstrijd 🏅', type: 'race', volume: '—',
+      desc: 'Warme-up 10–15 min rustig. Zet alles op alles — dit is waarvoor je getraind hebt!',
+      tags: ['race'] };
+  }
+  if (recov || taper) {
+    const km = clamp(Math.round(weekKm / sess), 3, 12);
+    const desc = recov
+      ? 'Herstelweek. Rustig en ontspannen — de aanpassingen van de vorige weken worden nu verankerd.'
+      : 'Taper. Benen fris houden, souplesse bewaren. Niet de verleiding om harder te gaan.';
+    return { day, name: 'Herstelloop', type: 'easy', volume: km + ' km', desc, tags: ['easy'] };
+  }
+  if (isLong) {
+    const km = clamp(Math.round(weekKm * 0.42), 4, 35);
+    let desc = `Rustig aaneengesloten tempo — je moet makkelijk kunnen praten. `;
+    if (km >= 10) desc += `Neem gels of water mee vanaf 75 min. `;
+    if (injKnie) desc += `Let op je kniepositie bij afdalen of heuvelwerk. `;
+    if (injHeup) desc += `Voorkom overstriding — houd je stap compact. `;
+    return { day, name: 'Lange duurloop', type: 'long', volume: km + ' km', desc: desc.trim(), tags: ['long'] };
+  }
+  if (isQual) {
+    const km = clamp(Math.round(weekKm * 0.24), 4, 16);
+    if (isLate) {
+      // Intervals
+      const reps = w >= Math.round(total * 0.75) ? '6–8' : '4–6';
+      const desc = `Warm op 15 min rustig. Hoofdset: ${reps}× 3 min op 5km-inspanning (of ~90% max HR) met 90 sec herstel. Koel af 10 min.`;
+      return { day, name: 'Intervaltraining', type: 'interval', volume: km + ' km', desc, tags: ['quality'] };
+    } else {
+      // Tempo
+      const tempoMin = clamp(Math.round(km * 4.5), 15, 40);
+      const desc = `Warm op 10 min rustig. Hoofdset: ${tempoMin} min tempoduur — comfortabel hard, niet sprint. Koel af 10 min.`;
+      return { day, name: 'Tempoduurloop', type: 'tempo', volume: km + ' km', desc, tags: ['quality'] };
+    }
+  }
+  // Easy run
+  const km = clamp(Math.round(weekKm * (idx === 0 ? 0.30 : 0.26)), 3, 14);
+  const desc = `Rustig duurlooptempo — Zone 2 (conversationeel). ${w <= 2 ? 'Weersta de verleiding om harder te lopen. De basis wordt hier gelegd.' : 'Actief herstel en aerobe opbouw.'}`;
+  return { day, name: 'Duurloop', type: 'easy', volume: km + ' km', desc, tags: ['easy'] };
+}
+
+function runWeekTitle(w, total, km, recov, taper) {
+  if (taper) return w === total ? 'Race week' : 'Afbouwweek';
+  if (recov) return 'Herstelweek';
+  const phase = w <= Math.round(total * 0.35) ? 'Basis opbouwen'
+              : w <= Math.round(total * 0.65) ? 'Kracht opbouwen'
+              : 'Piekfase';
+  return phase;
+}
+
+// ── CYCLING GENERATOR ────────────────────────────────
+function genCycling(p) {
+  const total   = p.tuning.duur;
+  const sess    = clamp(p.tuning.sessies, 1, 5);
+  const curve   = p.tuning.curve;
+  const isPerf  = p.goals.includes('presteren');
+  const isSwim  = p.activities.includes('zwemmen');
+  const increaseRate = [null, 0.05, 0.07, 0.10, 0.12, 0.15][curve];
+  const days    = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
+
+  const distBase = {20:30, 40:50, 60:70, 80:90, 100:110}[p.ft_afstand] || 50;
+  const lvl      = {nauwelijks:0.35, soms:0.55, regelmatig:0.80, actief:1.0}[p.actief] || 0.55;
+  let curKm      = clamp(Math.round(distBase * lvl * sess * 0.8 / 10) * 10, 20, 200);
+  let maxKm = 0;
+  const weeks = [];
+
+  for (let w = 1; w <= total; w++) {
+    const recov = isRecoveryWeek(w, curve);
+    const taper = isTaperWeek(w, total, isPerf);
+    let weekKm;
+    if (taper)      weekKm = Math.round(maxKm * (w === total ? 0.5 : 0.70));
+    else if (recov) weekKm = Math.round(curKm * 0.70);
+    else            weekKm = Math.round(curKm);
+    maxKm = Math.max(maxKm, weekKm);
+
+    const hasQuality = !recov && !taper && w >= 3 && sess >= 3;
+    const isLate     = w >= Math.round(total * 0.55);
+
+    const sessions = days.map((day, i) => {
+      const isLong = i === days.length - 1;
+      const isQual = hasQuality && i === 1;
+      const km     = isLong ? clamp(Math.round(weekKm * 0.45), 15, 120)
+                   : isQual ? clamp(Math.round(weekKm * 0.25), 15, 60)
+                   :          clamp(Math.round(weekKm * 0.28), 10, 50);
+      const name   = isLong ? 'Lange rit' : isQual ? (isLate ? 'Intervalrit' : 'Tempotraining') : isSwim ? 'Techniekzwemmen' : 'Herstelrit';
+      const type   = isLong ? 'long' : isQual ? (isLate ? 'interval' : 'tempo') : 'easy';
+      const unit   = (isSwim && !isLong && !isQual) ? 'm' : 'km';
+      const vol    = (isSwim && !isLong && !isQual) ? Math.round(km * 25) + ' m' : km + ' km';
+      let desc = '';
+      if (type === 'easy')     desc = 'Rustig herstelritme, Zone 2. Trapfrequentie hoog houden (85–95 rpm).';
+      if (type === 'tempo')    desc = `Warm op 15 min. Hoofdset: ${clamp(Math.round(km*4),15,45)} min tempoduur Zone 3–4. Koel af 10 min.`;
+      if (type === 'interval') desc = `Warm op 15 min. Hoofdset: 5–8× 2 min hoog vermogen (Zone 5) met 2 min herstel. Koel af.`;
+      if (type === 'long')     desc = `Rustig en aaneengesloten. Focus op aerobe opbouw en vetverbranding. Neem voeding mee vanaf 90 min.`;
+      return { day, name, type, volume: vol, desc, tags: [type === 'easy' ? 'easy' : type === 'long' ? 'long' : 'quality'] };
+    });
+
+    weeks.push({
+      weekNum: w, weekType: taper ? 'taper' : recov ? 'recovery' : 'normal',
+      title: recov ? 'Herstelweek' : taper ? (w===total?'Wedstrijd':'Afbouwweek') : w <= Math.round(total*0.4) ? 'Basisfase' : w <= Math.round(total*0.7) ? 'Opbouwfase' : 'Piekfase',
+      weekVolume: weekKm + ' km', sessions
+    });
+    if (!recov && !taper) curKm *= (1 + increaseRate);
+  }
+  return weeks;
+}
+
+// ── STRENGTH GENERATOR ───────────────────────────────
+function genStrength(p) {
+  const total   = p.tuning.duur;
+  const sess    = clamp(p.tuning.sessies, 1, 5);
+  const curve   = p.tuning.curve;
+  const isHome  = p.activities.includes('thuis') && !p.activities.includes('kracht') && p.gym !== 'ja';
+  const hasGym  = p.gym === 'ja' || (p.gym === 'soms') || p.activities.includes('kracht');
+  const injRug  = p.injury.includes('rug');
+  const injSch  = p.injury.includes('schouder');
+  const increaseRate = [null, 0.03, 0.04, 0.05, 0.07, 0.09][curve]; // strength increases slower
+  const days    = STR_DAYS_MAP[sess] || STR_DAYS_MAP[3];
+
+  // Strength: work in rep progressions
+  // Level determines starting sets/reps
+  const startSets = {nauwelijks: 2, soms: 3, regelmatig: 3, actief: 4}[p.actief] || 3;
+  let curSets = startSets;
+  let weekNum = 0;
+  const weeks = [];
+
+  // Phase structure:
+  // Phase 1 (weeks 1-30%): Adaptation — learn movement, 12-15 reps
+  // Phase 2 (weeks 30-65%): Hypertrophy — 8-12 reps
+  // Phase 3 (weeks 65-85%): Strength — 5-8 reps (gym only)
+  // Phase 4 (last 15%): Consolidation
+
+  for (let w = 1; w <= total; w++) {
+    const recov = isRecoveryWeek(w, curve);
+    const pct   = w / total;
+    const phase = pct < 0.30 ? 'adaptation' : pct < 0.65 ? 'hypertrophy' : pct < 0.85 ? 'strength' : 'consolidation';
+    const reps  = phase === 'adaptation' ? '12–15' : phase === 'hypertrophy' ? '8–12' : phase === 'strength' ? '5–8' : '8–12';
+    const sets  = recov ? Math.max(2, curSets - 1) : curSets;
+    const phaseTitle = {adaptation:'Aanpassingsfase', hypertrophy:'Hypertrofase', strength:'Krachtfase', consolidation:'Consolidatiefase'}[phase];
+
+    const sessions = days.map((day, i) => {
+      return strSession(day, i, sess, sets, reps, phase, isHome, hasGym, injRug, injSch, recov, w);
+    });
+
+    weeks.push({
+      weekNum: w, weekType: recov ? 'recovery' : 'normal',
+      title: recov ? 'Herstelweek' : phaseTitle,
+      weekVolume: sets + '×' + reps,
+      sessions
+    });
+
+    if (!recov && w % 3 === 0) curSets = Math.min(startSets + 2, curSets + 1);
+  }
+  return weeks;
+}
+
+function strSession(day, idx, totalSess, sets, reps, phase, isHome, hasGym, injRug, injSch, recov, w) {
+  // Split type based on sessions per week
+  let splitType;
+  if (totalSess <= 2) splitType = 'fullbody';
+  else if (totalSess <= 4) splitType = ['upper','lower','upper','lower'][idx % 4];
+  else splitType = ['push','pull','legs','upper','lower'][idx % 5];
+
+  if (recov) {
+    return { day, name: 'Herstel & mobiliteit', type: 'mobility',
+      volume: '20–30 min',
+      desc: 'Lichte stretching, foam rolling en mobiliteitswerk. Geen zware belasting deze week.',
+      tags: ['easy'] };
+  }
+
+  const s = sets, r = reps;
+  let name, desc, exercises;
+
+  if (splitType === 'fullbody') {
+    name = 'Full body training';
+    exercises = isHome
+      ? [`${s}× ${r} squat (of bulgaarse split squat)`, `${s}× ${r} push-up (of variatie)`, `${s}× ${r} heupscharnierend (deadlift of Romanian DL)`, `${s}× ${r} roeien (tafelrij of band)`, `${s}× 30–45 sec plank`]
+      : [`${s}× ${r} squat`, `${s}× ${r} bench press`, `${s}× ${r} deadlift${injRug?' (lichte gewichten, focus techniek)':''}`, `${s}× ${r} horizontaal roeien`, `${s}× ${r} overhead press${injSch?' (dumbbells, beperkte range)':''}`, `${s}× 45 sec plank`];
+    desc = `Volledige lichaamstraining. ${phase==='adaptation'?'Focus op techniek en beweegleer — gewicht is bijzaak.':phase==='hypertrophy'?'Beheerste bewegingen, 2-3 sec excentrisch.':'Zwaarder gewicht, volledige hersteltijd.'}`;
+  } else if (splitType === 'upper') {
+    name = 'Bovenkant lichaam';
+    exercises = isHome
+      ? [`${s}× ${r} push-up variatie`, `${s}× ${r} tafelrij`, `${s}× ${r} pike push-up`, `${s}× ${r} band pull-apart`, `${s}× 30 sec hollow hold`]
+      : [`${s}× ${r} bench press${injSch?' (dumbbells)':''}`, `${s}× ${r} barbell rij`, `${s}× ${r} shoulder press${injSch?' (beperkte ROM)':''}`, `${s}× ${r} pull-up of lat pull-down`, `${s}× ${r} tricep dips`, `${s}× ${r} bicep curl`];
+    desc = 'Duw- en trekspieroefeningen. Evenwichtige verhouding push:pull voor gezonde schouders.';
+  } else if (splitType === 'lower') {
+    name = 'Onderkant lichaam';
+    exercises = isHome
+      ? [`${s}× ${r} split squat`, `${s}× ${r} hip thrust`, `${s}× ${r} Roemeense deadlift (één been)`, `${s}× ${r} calf raises`, `${s}× 40 sec side plank`]
+      : [`${s}× ${r} squat`, `${s}× ${r} Romanian deadlift${injRug?' (lichte beugel, controle)':''}`, `${s}× ${r} leg press`, `${s}× ${r} leg curl`, `${s}× ${r} hip thrust`, `${s}× ${r} calf raise`];
+    desc = `Heup-, bil- en beenspieroefeningen. ${injRug?'Vermijd axiale belasting (geen zware squats) — focus op heupscharnieren.':''}`;
+  } else if (splitType === 'push') {
+    name = 'Push — borst, schouder, triceps';
+    exercises = isHome
+      ? [`${s}× ${r} push-up (breed)`, `${s}× ${r} pike push-up`, `${s}× ${r} dips (stoelen)`, `${s}× ${r} diamond push-up`]
+      : [`${s}× ${r} bench press`, `${s}× ${r} incline dumbbell press`, `${s}× ${r} shoulder press${injSch?' (dumbbell, beperkt)':''}`, `${s}× ${r} lateral raise`, `${s}× ${r} tricep pushdown`];
+    desc = 'Drukbewegingen voor borst, schouder en triceps.';
+  } else if (splitType === 'pull') {
+    name = 'Pull — rug, biceps';
+    exercises = isHome
+      ? [`${s}× ${r} tafelrij`, `${s}× ${r} band pull-apart`, `${s}× ${r} superman hold (3 sec)`, `${s}× ${r} bicep curl (band of fles)`]
+      : [`${s}× ${r} deadlift${injRug?' (licht, techniek)':''}`, `${s}× ${r} pull-up of lat pull-down`, `${s}× ${r} T-bar rij`, `${s}× ${r} face pull`, `${s}× ${r} bicep curl`];
+    desc = 'Trekspieroefeningen voor rug en biceps.';
+  } else {
+    name = 'Benen & core';
+    exercises = isHome
+      ? [`${s}× ${r} squat`, `${s}× ${r} Bulgaarse split squat`, `${s}× ${r} hip thrust`, `${s}× ${r} glute bridge`, `${s}× 45 sec plank variatie`]
+      : [`${s}× ${r} squat`, `${s}× ${r} leg press`, `${s}× ${r} leg curl`, `${s}× ${r} calf raise`, `${s}× ${r} ab wheel of hanging knee raise`];
+    desc = `Benen en core. ${injRug?'Vermijd hoge axiale belasting — gebruik leg press in plaats van barbell squat.':''}`;
+  }
+
+  return {
+    day, name, type: 'strength',
+    volume: sets + '×',
+    desc: desc + '\n\n' + exercises.join('\n'),
+    tags: ['quality']
+  };
+}
+
+// ── RECOVERY GENERATOR ───────────────────────────────
+function genRecovery(p) {
+  const total = p.tuning.duur;
+  const sess  = clamp(p.tuning.sessies, 1, 4);
+  const days  = WALK_DAYS_MAP[sess] || WALK_DAYS_MAP[3];
+  const weeks = [];
+
+  const sessions_pool = [
+    { name: 'Rustige wandeling',     type:'easy',     volume:'20–30 min', desc:'Laag tempo, geen drempel. Frisse lucht en bewustwording van je lichaam.', tags:['easy'] },
+    { name: 'Mobiliteitsroutine',    type:'mobility', volume:'25 min',    desc:'10 min foam rolling (rug, heupen, kuiten) + 15 min dynamische stretch.', tags:['easy'] },
+    { name: 'Yoga — herstel',        type:'mobility', volume:'30 min',    desc:'Yin-stijl yoga: passieve houdingen lang vasthouden (2–4 min per pose). Focus op heupen, hamstrings en thorax.', tags:['easy'] },
+    { name: 'Rustig fietsen',        type:'easy',     volume:'30–45 min', desc:'Heel rustig, vlak terrein. Geen weerstand — alleen de bloedsomloop stimuleren.', tags:['easy'] },
+    { name: 'Ademhaling & ontspan.', type:'mobility', volume:'20 min',    desc:'Diafragmatisch ademhalen, progressieve spierontspanning. Ideaal bij stress of burn-out component.', tags:['easy'] },
+    { name: 'Lichte krachtopbouw',   type:'strength', volume:'20–30 min', desc:'Bewegingspatronen zonder belasting: bodyweight squat, hip hinge, push-up op knieën. Focus op beweegleer.', tags:['easy'] },
+  ];
+
+  for (let w = 1; w <= total; w++) {
+    const pct = w / total;
+    const volFactor = 0.5 + pct * 0.5; // gently increase over time
+    const sessions = days.map((day, i) => {
+      const s = sessions_pool[(i + w) % sessions_pool.length];
+      return { ...s, day };
+    });
+    weeks.push({
+      weekNum: w, weekType: 'normal',
+      title: pct < 0.4 ? 'Activatie & rust' : pct < 0.7 ? 'Voorzichtig opbouwen' : 'Verdere opbouw',
+      weekVolume: Math.round(sess * 25 * volFactor) + ' min',
+      sessions
+    });
+  }
+  return weeks;
+}
+
+// ── WALKING GENERATOR ────────────────────────────────
+function genWalking(p) {
+  const total = p.tuning.duur;
+  const sess  = clamp(p.tuning.sessies, 1, 5);
+  const curve = p.tuning.curve;
+  const days  = WALK_DAYS_MAP[sess] || WALK_DAYS_MAP[3];
+  const increaseRate = [null, 0.04, 0.06, 0.08, 0.10, 0.13][curve];
+
+  let startMin = {nauwelijks:20, soms:30, regelmatig:40, actief:50}[p.actief] || 30;
+  let curMin   = startMin;
+  const weeks  = [];
+
+  for (let w = 1; w <= total; w++) {
+    const recov = isRecoveryWeek(w, curve);
+    const weekMin = recov ? Math.round(curMin * 0.75) : Math.round(curMin);
+    const sessions = days.map((day, i) => {
+      const isLong = i === days.length - 1 && sess >= 2;
+      const min    = isLong ? Math.round(weekMin * 0.42 * sess) : Math.round(weekMin);
+      const name   = isLong ? 'Lange wandeling' : 'Actieve wandeling';
+      const desc   = isLong
+        ? `Langere tocht in rustig tempo. Goede schoenen, neem water mee. Geniet van de omgeving.`
+        : w <= 3
+        ? `Begin rustig en vind je ritme. Bewuste ademhaling, rechte houding.`
+        : `Stevig wandeltempo — je hartslag mag iets hoger. Nordic poles optioneel.`;
+      return { day, name, type: isLong ? 'long' : 'easy', volume: min + ' min', desc, tags: [isLong ? 'long' : 'easy'] };
+    });
+    weeks.push({
+      weekNum: w, weekType: recov ? 'recovery' : 'normal',
+      title: recov ? 'Rustige week' : w <= Math.round(total*0.4) ? 'Gewoontes opbouwen' : w <= Math.round(total*0.7) ? 'Uitbreiden' : 'Verankeren',
+      weekVolume: Math.round(weekMin * sess) + ' min',
+      sessions
+    });
+    if (!recov) curMin *= (1 + increaseRate);
+  }
+  return weeks;
+}
+
+// ── COMBO GENERATOR (run + strength) ─────────────────
+function genCombo(p) {
+  const total  = p.tuning.duur;
+  const sess   = clamp(p.tuning.sessies, 2, 5);
+  const curve  = p.tuning.curve;
+  const focus  = p.tuning.focus; // 1=cardio, 5=kracht, 3=balanced
+  const runDays    = Math.round(sess * (focus <= 2 ? 0.6 : focus >= 4 ? 0.4 : 0.5));
+  const strengthDays = sess - runDays;
+  const increaseRate = [null, 0.05, 0.07, 0.09, 0.11, 0.14][curve];
+
+  let curRunKm = runStartKm(p);
+  let maxRunKm = 0;
+  const isPerf = p.goals.includes('presteren');
+  const injKnie = p.injury.includes('knie');
+
+  // Interleave run and strength days
+  const allDays = ['Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag','Zondag'];
+  const usedDays = allDays.slice(0, sess + 1).filter((_, i) => i < sess);
+  // Assign: strength days first (Mon, Wed or Tue, Thu), run days fill in
+  const strDays = [];
+  const runDaysArr = [];
+  for (let i = 0; i < sess; i++) {
+    if (i % 2 === 0 && strDays.length < strengthDays) strDays.push(allDays[i]);
+    else if (runDaysArr.length < runDays) runDaysArr.push(allDays[i + 1] || allDays[i]);
+    else strDays.push(allDays[i]);
+  }
+  // Re-sort chronologically
+  const weekDays = [...strDays, ...runDaysArr].sort((a,b) => allDays.indexOf(a) - allDays.indexOf(b));
+  const dayTypes = weekDays.map(d => strDays.includes(d) ? 'strength' : 'run');
+
+  const weeks = [];
+  let strSets = {nauwelijks:2, soms:3, regelmatig:3, actief:4}[p.actief] || 3;
+
+  for (let w = 1; w <= total; w++) {
+    const recov = isRecoveryWeek(w, curve);
+    const taper = isTaperWeek(w, total, isPerf);
+    let weekRunKm;
+    if (taper)      weekRunKm = Math.round(maxRunKm * (w === total ? 0.5 : 0.65));
+    else if (recov) weekRunKm = Math.round(curRunKm * 0.70);
+    else            weekRunKm = Math.round(curRunKm);
+    maxRunKm = Math.max(maxRunKm, weekRunKm);
+
+    const runIdx = { current: 0 };
+    const sessions = weekDays.map((day, i) => {
+      if (dayTypes[i] === 'run') {
+        const ri = runIdx.current++;
+        const isLong = ri === runDays - 1;
+        const isQual = !isLong && ri === 1 && runDays >= 3 && !recov && w >= 3;
+        return runSession(day, ri, isLong, isQual, w >= Math.round(total*0.55), weekRunKm, runDays, w, total, taper, recov, isPerf, injKnie, false);
+      } else {
+        const sets = recov ? Math.max(2, strSets - 1) : strSets;
+        const pct  = w / total;
+        const phase = pct < 0.3 ? 'adaptation' : pct < 0.65 ? 'hypertrophy' : 'strength';
+        const reps  = phase === 'adaptation' ? '12–15' : phase === 'hypertrophy' ? '8–12' : '5–8';
+        const si    = strDays.indexOf(day);
+        const isHome = p.activities.includes('thuis') && p.gym !== 'ja';
+        return strSession(day, si, strengthDays, sets, reps, phase, isHome, p.gym==='ja', p.injury.includes('rug'), p.injury.includes('schouder'), recov, w);
+      }
+    });
+
+    weeks.push({
+      weekNum: w, weekType: taper ? 'taper' : recov ? 'recovery' : 'normal',
+      title: recov ? 'Herstelweek' : taper ? 'Afbouwweek' : w <= Math.round(total*0.35) ? 'Basisfase' : w <= Math.round(total*0.65) ? 'Opbouwfase' : 'Piekfase',
+      weekVolume: weekRunKm + ' km + kracht',
+      sessions
+    });
+
+    if (!recov && !taper) { curRunKm *= (1 + increaseRate); if (w % 3 === 0) strSets = Math.min(strSets + 1, 5); }
+  }
+  return weeks;
 }
 
 // ── RESTORE UI FROM SAVED PROFILE ──

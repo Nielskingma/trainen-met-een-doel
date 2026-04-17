@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Mijn schema — Trainen met een doel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d1117; --surface:#161b22; --surface2:#1f2730;
+  --border:#556070; --accent:#4ade80; --accent2:#86efac;
+  --warn:#fbbf24; --danger:#f87171; --text:#ffffff; --muted:#8b949e;
+  --mono:'DM Mono',monospace; --serif:'Fraunces',serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{background:var(--bg);color:var(--text);font-family:var(--mono);overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(74,222,128,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(74,222,128,0.03) 1px,transparent 1px);
+  background-size:40px 40px;}
+
+/* ── LAYOUT ── */
+.page{max-width:520px;margin:0 auto;padding:0 0 80px;position:relative;z-index:1;}
+
+/* ── HEADER ── */
+.sv-header{padding:20px 20px 16px;border-bottom:1px solid var(--border);}
+.sv-eyebrow{font-size:10px;letter-spacing:.2em;color:var(--accent);text-transform:uppercase;margin-bottom:4px;}
+.sv-header h1{font-family:var(--serif);font-size:24px;font-weight:700;line-height:1.15;}
+.sv-header h1 em{font-style:italic;color:var(--accent);}
+.sv-sub{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5;}
+.header-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.btn-sm{background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px;border-radius:99px;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent;}
+.btn-sm:hover{border-color:var(--accent);color:var(--accent);}
+.btn-sm.danger:hover{border-color:var(--danger);color:var(--danger);}
+
+/* ── STATS ── */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:16px 20px;}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;}
+.stat-val{font-family:var(--serif);font-size:22px;font-weight:700;color:var(--accent);}
+.stat-lbl{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:3px;}
+
+/* ── PROGRESS BAR ── */
+.progress-wrap{padding:0 20px 16px;}
+.pb-header{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:8px;}
+.pb-header strong{color:var(--accent);}
+.pb-track{height:6px;background:var(--border);border-radius:99px;overflow:hidden;}
+.pb-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:99px;transition:width .6s ease;}
+
+/* ── TABS ── */
+.tabs{display:flex;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:10;}
+.tab-btn{flex:1;padding:14px 8px;background:none;border:none;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);}
+.panel{display:none;padding:16px 20px;}
+.panel.active{display:block;}
+
+/* ── WEEK CARDS ── */
+.week-card{border:1px solid var(--border);border-radius:14px;margin-bottom:12px;overflow:hidden;}
+.week-card.current{border-color:var(--accent);}
+.week-card.done{opacity:.55;}
+.week-card.recovery{border-style:dashed;}
+.week-card.taper{border-color:var(--warn);}
+
+.week-header{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;background:var(--surface);cursor:pointer;-webkit-tap-highlight-color:transparent;gap:10px;}
+.week-left{flex:1;min-width:0;}
+.week-meta{font-size:10px;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;margin-bottom:3px;}
+.week-title{font-family:var(--serif);font-size:15px;color:var(--text);line-height:1.2;}
+.week-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.week-vol{font-size:11px;color:var(--muted);}
+.week-badge{font-size:10px;padding:3px 9px;border-radius:99px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);white-space:nowrap;}
+.week-card.current .week-badge{background:rgba(74,222,128,.1);color:var(--accent);border-color:var(--accent);}
+.week-card.recovery .week-badge{background:rgba(251,191,36,.08);color:var(--warn);border-color:var(--warn);}
+.week-card.taper .week-badge{background:rgba(251,191,36,.08);color:var(--warn);border-color:var(--warn);}
+.week-chevron{color:var(--muted);font-size:12px;transition:transform .2s;}
+.week-card.open .week-chevron{transform:rotate(180deg);}
+
+.week-sessions{display:none;padding:12px;gap:8px;flex-direction:column;}
+.week-card.open .week-sessions{display:flex;}
+
+/* ── SESSION CARDS ── */
+.session-card{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.session-card.completed{border-color:var(--accent);background:rgba(74,222,128,.04);}
+.session-card.race-card{border-color:var(--danger);background:rgba(248,113,113,.04);}
+.sc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.sc-left{flex:1;}
+.sc-day{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;}
+.sc-name{font-size:13px;font-weight:500;color:var(--text);line-height:1.3;}
+.sc-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;}
+.sc-vol{font-family:var(--serif);font-size:20px;font-weight:700;color:var(--accent2);line-height:1;white-space:nowrap;}
+.sc-check{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
+.session-card.completed .sc-check{background:var(--accent);border-color:var(--accent);}
+.sc-check::after{content:'';width:5px;height:9px;border:2px solid #0d1117;border-top:none;border-left:none;transform:rotate(45deg) translateY(-1px);opacity:0;transition:opacity .2s;}
+.session-card.completed .sc-check::after{opacity:1;}
+.sc-desc{font-size:12px;color:var(--muted);line-height:1.7;border-top:1px solid var(--border);padding-top:8px;white-space:pre-wrap;}
+.sc-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;}
+.sc-tag{font-size:9px;padding:2px 7px;border-radius:99px;}
+.tag-easy{background:rgba(74,222,128,.1);color:var(--accent);border:1px solid rgba(74,222,128,.3);}
+.tag-long{background:rgba(134,239,172,.1);color:var(--accent2);border:1px solid rgba(134,239,172,.3);}
+.tag-quality{background:rgba(251,191,36,.1);color:var(--warn);border:1px solid rgba(251,191,36,.3);}
+.tag-race{background:rgba(248,113,113,.1);color:var(--danger);border:1px solid rgba(248,113,113,.3);}
+
+/* ── OVERVIEW TAB ── */
+.overview-block{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px;}
+.ov-label{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+.ov-value{font-family:var(--serif);font-size:18px;font-weight:700;line-height:1.3;}
+.ov-value em{font-style:italic;color:var(--accent);}
+.principle-row{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--border);}
+.principle-row:last-child{border-bottom:none;}
+.principle-icon{font-size:20px;flex-shrink:0;margin-top:1px;}
+.principle-text{font-size:12px;color:var(--muted);line-height:1.6;}
+.principle-text strong{color:var(--text);display:block;margin-bottom:2px;}
+
+/* ── EMPTY STATE ── */
+.empty-state{text-align:center;padding:60px 20px;}
+.empty-state h2{font-family:var(--serif);font-size:22px;margin-bottom:10px;}
+.empty-state p{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:24px;}
+.btn-primary{display:inline-block;padding:14px 28px;border-radius:12px;background:var(--accent);color:#0d1117;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;font-weight:500;transition:all .2s;}
+.btn-primary:hover{background:var(--accent2);}
+</style>
+</head>
+<body>
+<div class="page" id="page">
+  <div id="empty-state" class="empty-state" style="display:none;">
+    <h2>Nog geen schema</h2>
+    <p>Maak eerst jouw persoonlijke schema via de onboarding.</p>
+    <a class="btn-primary" href="onboarding.html">Schema aanmaken →</a>
+  </div>
+  <div id="schema-view">
+    <!-- filled by JS -->
+  </div>
+</div>
+
+<script>
+// ── LOAD SCHEMA ──────────────────────────────────────
+const raw = localStorage.getItem('tmg_generated_schema');
+if (!raw) {
+  document.getElementById('empty-state').style.display = 'block';
+  document.getElementById('schema-view').style.display = 'none';
+} else {
+  const schema = JSON.parse(raw);
+  renderSchema(schema);
+}
+
+// ── PROGRESS TRACKING ────────────────────────────────
+function doneKey(w, s) { return 'done_' + w + '_' + s; }
+function isDone(w, s)  { return localStorage.getItem(doneKey(w,s)) === '1'; }
+function toggleDone(w, s, el) {
+  const key = doneKey(w, s);
+  if (localStorage.getItem(key) === '1') {
+    localStorage.removeItem(key);
+    el.closest('.session-card').classList.remove('completed');
+  } else {
+    localStorage.setItem(key, '1');
+    el.closest('.session-card').classList.add('completed');
+  }
+  updateProgress();
+}
+
+function countDone(schema) {
+  let done = 0, total = 0;
+  schema.weeks.forEach((wk, wi) => {
+    wk.sessions.forEach((_, si) => { total++; if (isDone(wi+1, si)) done++; });
+  });
+  return { done, total };
+}
+
+function updateProgress() {
+  const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
+  if (!schema) return;
+  const { done, total } = countDone(schema);
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  const el = document.getElementById('pb-fill');
+  const lb = document.getElementById('pb-done');
+  if (el) el.style.width = pct + '%';
+  if (lb) lb.textContent = done + ' / ' + total;
+}
+
+// ── CURRENT WEEK DETECTION ───────────────────────────
+function getCurrentWeek(schema) {
+  if (!schema.startDate) return 1;
+  const start = new Date(schema.startDate);
+  const now   = new Date();
+  const diff  = Math.floor((now - start) / (1000 * 60 * 60 * 24 * 7));
+  return Math.min(Math.max(1, diff + 1), schema.weeks.length);
+}
+
+// ── TAG BADGE ────────────────────────────────────────
+function tagBadge(tag) {
+  const cls = tag === 'easy' ? 'tag-easy' : tag === 'long' ? 'tag-long' : tag === 'race' ? 'tag-race' : 'tag-quality';
+  const lbl = tag === 'easy' ? 'Rustig' : tag === 'long' ? 'Lange loop' : tag === 'race' ? 'Wedstrijd' : 'Kwaliteit';
+  return `<span class="sc-tag ${cls}">${lbl}</span>`;
+}
+
+// ── RENDER ───────────────────────────────────────────
+function renderSchema(schema) {
+  const curWeek = getCurrentWeek(schema);
+  const { done, total } = countDone(schema);
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  const totalSessions = schema.weeks.reduce((s,w) => s + w.sessions.length, 0);
+  const p = schema.profile || {};
+
+  // Build volume stat
+  const runWeeks = schema.weeks.filter(w => w.sessions.some(s => s.volume && s.volume.includes('km')));
+  const volumes = runWeeks.map(w => w.sessions.reduce((sum, s) => {
+    const m = s.volume && s.volume.match(/^(\d+)/);
+    return sum + (m ? parseInt(m[1]) : 0);
+  }, 0));
+  const peakVol = volumes.length ? Math.max(...volumes) : 0;
+  const volLabel = peakVol > 0 ? peakVol + ' km' : schema.weeks[Math.floor(schema.weeks.length*0.7)]?.weekVolume || '—';
+
+  document.getElementById('schema-view').innerHTML = `
+  <div class="sv-header">
+    <div class="sv-eyebrow">Jouw schema</div>
+    <h1>${schema.title.includes(' ') ? schema.title.replace(/(\w+)$/, '<em>$1</em>') : schema.title}</h1>
+    <div class="sv-sub">${schema.subtitle}</div>
+    <div class="header-actions">
+      <button class="btn-sm" onclick="window.location='onboarding.html'">✦ Schema aanpassen</button>
+      <button class="btn-sm danger" onclick="resetSchema()">↺ Opnieuw beginnen</button>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-val">${schema.weeks.length}</div><div class="stat-lbl">Weken</div></div>
+    <div class="stat-box"><div class="stat-val">${totalSessions}</div><div class="stat-lbl">Sessies</div></div>
+    <div class="stat-box"><div class="stat-val">${volLabel}</div><div class="stat-lbl">Piek week</div></div>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="pb-header"><span>Voortgang</span><strong id="pb-done">${done} / ${total}</strong></div>
+    <div class="pb-track"><div class="pb-fill" id="pb-fill" style="width:${pct}%"></div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('schema')">Schema</button>
+    <button class="tab-btn" onclick="switchTab('overview')">Opbouw</button>
+  </div>
+
+  <div class="panel active" id="panel-schema">
+    ${schema.weeks.map((wk, wi) => renderWeek(wk, wi, curWeek)).join('')}
+  </div>
+
+  <div class="panel" id="panel-overview">
+    ${renderOverview(schema, p)}
+  </div>
+  `;
+
+  // Auto-open current week
+  const curCard = document.getElementById('week-' + curWeek);
+  if (curCard) {
+    curCard.classList.add('open');
+    setTimeout(() => curCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+  }
+}
+
+function renderWeek(wk, wi, curWeek) {
+  const w = wk.weekNum;
+  const isPast    = w < curWeek;
+  const isCurrent = w === curWeek;
+  const cardClass = [
+    'week-card',
+    isCurrent ? 'current' : '',
+    isPast    ? 'done'    : '',
+    wk.weekType === 'recovery' ? 'recovery' : '',
+    wk.weekType === 'taper'    ? 'taper'    : ''
+  ].filter(Boolean).join(' ');
+
+  const badge = isCurrent ? 'Deze week' : wk.weekType === 'recovery' ? 'Herstelweek' : wk.weekType === 'taper' ? 'Tapering' : 'Week ' + w;
+
+  const sessionsHtml = wk.sessions.map((s, si) => {
+    const done = isDone(w, si);
+    const isRace = s.type === 'race';
+    return `
+    <div class="session-card ${done?'completed':''} ${isRace?'race-card':''}" onclick="toggleDone(${w},${si},this)">
+      <div class="sc-top">
+        <div class="sc-left">
+          <div class="sc-day">${s.day}</div>
+          <div class="sc-name">${s.name}</div>
+        </div>
+        <div class="sc-right">
+          <div class="sc-vol">${s.volume}</div>
+          <div class="sc-check"></div>
+        </div>
+      </div>
+      ${s.desc ? `<div class="sc-desc">${s.desc}</div>` : ''}
+      <div class="sc-tags">${(s.tags||[]).map(tagBadge).join('')}</div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="week-card ${isCurrent?'current':''} ${isPast?'done':''} ${wk.weekType==='recovery'?'recovery':''} ${wk.weekType==='taper'?'taper':''}" id="week-${w}">
+    <div class="week-header" onclick="toggleWeek(this.parentElement)">
+      <div class="week-left">
+        <div class="week-meta">Week ${w} van ${wk.weekNum}</div>
+        <div class="week-title">${wk.title}</div>
+      </div>
+      <div class="week-right">
+        <span class="week-vol">${wk.weekVolume}</span>
+        <span class="week-badge">${badge}</span>
+        <span class="week-chevron">▾</span>
+      </div>
+    </div>
+    <div class="week-sessions">${sessionsHtml}</div>
+  </div>`;
+}
+
+function renderOverview(schema, p) {
+  const levelMap = {nauwelijks:'beginner',soms:'licht actief',regelmatig:'regelmatig actief',actief:'gevorderd'};
+  const lvl = levelMap[p.actief] || 'onbekend';
+  const goals = (p.goals||[]).map(g => ({presteren:'Presteren',fitter:'Fitter worden',sterker:'Sterker worden',bewegen:'Meer bewegen',herstellen:'Herstellen'}[g]||g)).join(', ');
+  const activities = (p.activities||[]).map(a => ({hardlopen:'Hardlopen',fietsen:'Fietsen',zwemmen:'Zwemmen',kracht:'Kracht',wandelen:'Wandelen',thuis:'Thuis/bodyweight'}[a]||a)).join(', ');
+  const curve = ['','Rustig opbouwen','Geleidelijk','Gemiddeld','Progressief','Snel opbouwen'][p.tuning?.curve||3];
+
+  // Calculate recovery week indices
+  const recovWks = schema.weeks.filter(w=>w.weekType==='recovery').map(w=>w.weekNum);
+  const recovStr = recovWks.length ? 'Week ' + recovWks.join(', ') : '—';
+
+  return `
+  <div class="overview-block">
+    <div class="ov-label">Jouw profiel</div>
+    <div style="font-size:13px;color:var(--muted);line-height:1.8;">
+      <div><strong style="color:var(--text)">Niveau</strong> ${lvl}</div>
+      <div><strong style="color:var(--text)">Doel</strong> ${goals||'—'}</div>
+      <div><strong style="color:var(--text)">Activiteit</strong> ${activities||'—'}</div>
+      <div><strong style="color:var(--text)">Opbouwcurve</strong> ${curve}</div>
+      ${p.injury && p.injury.length && !p.injury.includes('geen') ? `<div><strong style="color:var(--warn)">Aandachtspunten</strong> ${p.injury.join(', ')}</div>` : ''}
+    </div>
+  </div>
+
+  <div class="overview-block">
+    <div class="ov-label">Trainingsprincipes in dit schema</div>
+    <div class="principle-row">
+      <div class="principle-icon">📊</div>
+      <div class="principle-text"><strong>80/20 regel</strong>Circa 80% van de trainingen zijn rustig (Zone 2). Zo bouw je aerobe capaciteit op zonder je lichaam te overbelasten.</div>
+    </div>
+    <div class="principle-row">
+      <div class="principle-icon">📈</div>
+      <div class="principle-text"><strong>Progressieve overbelasting</strong>Volume stijgt geleidelijk per week. Jouw lichaam past zich aan, en dan wordt de lat iets hoger gelegd.</div>
+    </div>
+    <div class="principle-row">
+      <div class="principle-icon">🔁</div>
+      <div class="principle-text"><strong>Periodisering</strong>Herstelweken (${recovStr}) zijn bewust ingebouwd. In die weken wordt de aanpassing verankerd — overslaan is een gemiste kans.</div>
+    </div>
+    <div class="principle-row">
+      <div class="principle-icon">🎯</div>
+      <div class="principle-text"><strong>Specificiteit</strong>De kwaliteitssessies worden later in het schema zwaarder en racespecifieker — zodat je lichaam precies leert wat het nodig heeft.</div>
+    </div>
+  </div>
+
+  <div class="overview-block">
+    <div class="ov-label">Wekelijkse verdeling</div>
+    ${schema.weeks.slice(0,Math.min(schema.weeks.length,16)).map(wk => `
+    <div style="display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:11px;color:var(--muted);width:52px;flex-shrink:0;">Wk ${wk.weekNum}</div>
+      <div style="flex:1;height:6px;background:var(--border);border-radius:99px;overflow:hidden;">
+        <div style="height:100%;border-radius:99px;background:${wk.weekType==='recovery'?'rgba(251,191,36,0.6)':wk.weekType==='taper'?'rgba(248,113,113,0.6)':'var(--accent)'};width:${Math.min(100, Math.round((parseInt(wk.weekVolume)||10)/3))}%"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);width:60px;text-align:right;flex-shrink:0;">${wk.weekVolume}</div>
+    </div>`).join('')}
+    ${schema.weeks.length > 16 ? `<div style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center;">+ ${schema.weeks.length-16} weken meer…</div>` : ''}
+  </div>`;
+}
+
+// ── UI HELPERS ───────────────────────────────────────
+function toggleWeek(card) {
+  card.classList.toggle('open');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (i===0&&tab==='schema')||(i===1&&tab==='overview')));
+  document.getElementById('panel-schema').classList.toggle('active', tab==='schema');
+  document.getElementById('panel-overview').classList.toggle('active', tab==='overview');
+}
+
+function resetSchema() {
+  if (!confirm('Schema wissen en opnieuw beginnen?')) return;
+  localStorage.removeItem('tmg_generated_schema');
+  window.location.href = 'onboarding.html';
+}
+</script>
+</body>
+</html>
