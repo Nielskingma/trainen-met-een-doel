@@ -141,6 +141,70 @@ if (!raw) {
 } else {
   const schema = JSON.parse(raw);
   renderSchema(schema);
+  renderSessiesAdjust(schema);
+}
+
+// ── SESSIES ADJUST ────────────────────────────────────
+function renderSessiesAdjust(schema) {
+  const p = schema.profile || {};
+  const multi = (p.activities || []).length > 1;
+  const as = (p.tuning && p.tuning.activitySessions) || {};
+  const actNames = {hardlopen:'Hardlopen',fietsen:'Fietsen',zwemmen:'Zwemmen',kracht:'Kracht',wandelen:'Wandelen',thuis:'Thuis'};
+  const actIcons = {hardlopen:'🏃',fietsen:'🚴',zwemmen:'🏊',kracht:'🏋️',wandelen:'🥾',thuis:'🏠'};
+  const el = document.getElementById('sessies-adjust');
+  if (!el) return;
+
+  if (multi && Object.keys(as).length) {
+    el.innerHTML = `
+    <div style="font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:8px;">Sessies per activiteit</div>
+    ${(p.activities||[]).map(a => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);">
+      <div style="font-size:12px;">${actIcons[a]||''} ${actNames[a]||a}</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button onclick="adjustAndRegen('${a}',-1)" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
+        <span id="ms-count-${a}" style="font-family:var(--serif);font-size:18px;font-weight:700;color:var(--accent);min-width:18px;text-align:center;">${as[a]||1}</span>
+        <button onclick="adjustAndRegen('${a}',1)"  style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+      </div>
+    </div>`).join('')}`;
+  } else {
+    const cur = (p.tuning && p.tuning.sessies) || 3;
+    el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+      <span style="font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;">Sessies/week</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button onclick="adjustAndRegen(null,-1)" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
+        <span id="ms-count-total" style="font-family:var(--serif);font-size:18px;font-weight:700;color:var(--accent);min-width:18px;text-align:center;">${cur}×</span>
+        <button onclick="adjustAndRegen(null,1)"  style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--muted);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+      </div>
+    </div>`;
+  }
+}
+
+function adjustAndRegen(activity, delta) {
+  const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
+  if (!schema) return;
+  const p = schema.profile;
+  if (!p.tuning.activitySessions) p.tuning.activitySessions = {};
+
+  if (activity) {
+    const cur = p.tuning.activitySessions[activity] || 1;
+    p.tuning.activitySessions[activity] = Math.max(1, cur + delta);
+    p.tuning.sessies = Object.values(p.tuning.activitySessions).reduce((s,v)=>s+v,0);
+  } else {
+    p.tuning.sessies = Math.max(1, Math.min(6, (p.tuning.sessies||3) + delta));
+  }
+
+  // Re-generate
+  localStorage.setItem('tmg_profile', JSON.stringify(p));
+  regenFromProfile(p, schema);
+}
+
+function regenFromProfile(p, oldSchema) {
+  // Inline mini-generator: re-run by loading onboarding generator logic
+  // Since we can't call onboarding.html JS directly, redirect with a flag
+  localStorage.setItem('tmg_regen', '1');
+  localStorage.setItem('tmg_profile', JSON.stringify(p));
+  window.location.href = 'onboarding.html#regen';
 }
 
 // ── PROGRESS TRACKING ────────────────────────────────
@@ -219,6 +283,7 @@ function renderSchema(schema) {
       <button class="btn-sm" onclick="window.location='onboarding.html'">✦ Schema aanpassen</button>
       <button class="btn-sm danger" onclick="resetSchema()">↺ Opnieuw beginnen</button>
     </div>
+    <div id="sessies-adjust" style="margin-top:14px;"></div>
   </div>
 
   <div class="stats-row">
