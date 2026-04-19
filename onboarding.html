@@ -593,6 +593,13 @@ input[type=range] {
       <div class="range-labels"><span>Cardio / uithoudingsvermogen</span><span>Kracht / spieren</span></div>
     </div>
 
+    <!-- TUNING: presteren ↔ herstellen (alleen bij conflict) -->
+    <div class="tuning-card" id="tuning-conflict-card" style="display:none">
+      <div class="tuning-label">Balans herstel ↔ presteren <span id="conflict-label">Gebalanceerd</span></div>
+      <input type="range" min="1" max="5" value="3" id="conflict-slider" oninput="updatePerfHerstel(this.value)">
+      <div class="range-labels"><span>Puur herstel</span><span>Puur presteren</span></div>
+    </div>
+
     <div class="schema-cta-wrap">
       <p class="schema-cta-intro">Jouw profiel is opgeslagen. Klik hieronder om het schema te genereren.</p>
       <button class="btn-cta" onclick="generateSchema()">Schema genereren →</button>
@@ -616,7 +623,7 @@ const profile = {
   doel: '', doeldatum: '',
   herstel_van: '', herstel_duur: null,
   injury: [],
-  tuning: { curve: 3, duur: 12, sessies: 3, focus: 3 }
+  tuning: { curve: 3, duur: 12, sessies: 3, focus: 3, perfHerstel: 3 }
 };
 
 // load from localStorage — or auto-regen if redirected from mijn-schema
@@ -794,6 +801,15 @@ function buildStep4() {
                      profile.activities.includes('zwemmen') || profile.activities.includes('wandelen'));
   document.getElementById('tuning-focus-card').style.display = showFocus ? 'block' : 'none';
 
+  // Conflict slider: presteren + herstellen
+  const hasConflict = profile.goals.includes('presteren') && profile.goals.includes('herstellen');
+  document.getElementById('tuning-conflict-card').style.display = hasConflict ? 'block' : 'none';
+  if (hasConflict) {
+    if (!profile.tuning.perfHerstel) profile.tuning.perfHerstel = 3;
+    document.getElementById('conflict-slider').value = profile.tuning.perfHerstel;
+    updatePerfHerstel(profile.tuning.perfHerstel);
+  }
+
   // profile summary
   document.getElementById('profile-name').textContent = buildProfileName();
   document.getElementById('profile-desc').textContent = buildProfileDesc();
@@ -870,6 +886,12 @@ function updateFocus(v) {
   document.getElementById('focus-label').textContent = focusLabels[v];
   save();
 }
+const perfHerstelLabels = ['','Puur herstel','Herstelgericht','Gebalanceerd','Prestatiegercht','Puur presteren'];
+function updatePerfHerstel(v) {
+  profile.tuning.perfHerstel = parseInt(v);
+  document.getElementById('conflict-label').textContent = perfHerstelLabels[v];
+  save();
+}
 function updateDuurLabel(v) {
   profile.tuning.duur = v;
   document.getElementById('duur-label').textContent = v + ' weken';
@@ -917,25 +939,97 @@ function buildProfileTags() {
 }
 
 // ═══════════════════════════════════════════════════
+//  SCHEMA CONFIG — bouwt één object uit doel-as + sport-as
+// ═══════════════════════════════════════════════════
+
+function buildSchemaConfig(p) {
+  const g = p.goals, a = p.activities;
+
+  // ── Doel-as (intersectie: meer doelen = strengere filter) ──
+  const wantsPerf    = g.includes('presteren');
+  const wantsFitter  = g.includes('fitter');
+  const wantsSterker = g.includes('sterker');
+  const wantsBewegen = g.includes('bewegen');
+  const wantsHerstel = g.includes('herstellen');
+
+  // Conflict presteren + herstellen → slider bepaalt balans
+  const hasConflict = wantsPerf && wantsHerstel;
+  const perfBalance = hasConflict  ? (parseInt(p.tuning.perfHerstel) || 3)
+                    : wantsHerstel ? 1
+                    : wantsPerf    ? 5
+                    : wantsSterker ? 4
+                    : wantsBewegen ? 2
+                    : 3; // fitter/default
+
+  // Plan-parameters afgeleid van perfBalance (1=puur herstel … 5=puur presteren)
+  const volumeFactor   = [0, 0.50, 0.65, 0.80, 0.90, 1.00][perfBalance];
+  const hasTaper       = wantsPerf && perfBalance >= 3;
+  const hasRace        = wantsPerf && perfBalance >= 4;
+  const qualityEnabled = perfBalance >= 3;
+  const qualityFrom    = perfBalance >= 4 ? 3 : perfBalance === 3 ? 5 : 999;
+  const maxIntensity   = perfBalance <= 2 ? 'easy' : perfBalance === 3 ? 'tempo' : 'interval';
+
+  // ── Sport-as (unie: meer sporten = meer sessies) ──
+  const hasRun  = a.includes('hardlopen');
+  const hasBike = a.includes('fietsen');
+  const hasSwim = a.includes('zwemmen');
+  const hasStr  = a.includes('kracht') || a.includes('thuis');
+  const hasWalk = a.includes('wandelen');
+
+  // Type bepaling (versmald door doel-as, gevuld door sport-as)
+  let type;
+  if (wantsHerstel && perfBalance <= 2) {
+    type = 'recovery';
+  } else if ((hasRun || hasBike || hasSwim) && hasStr) {
+    if (p.tuning.focus <= 2) type = hasRun ? 'running' : hasBike ? 'cycling' : 'swimming';
+    else if (p.tuning.focus >= 4) type = 'strength';
+    else type = 'combo';
+  } else if ([hasRun, hasBike, hasSwim, hasWalk].filter(Boolean).length >= 2) {
+    type = 'combo';
+  } else if (hasRun)  type = 'running';
+  else if (hasBike)   type = 'cycling';
+  else if (hasSwim)   type = 'swimming';
+  else if (hasStr)    type = 'strength';
+  else if (hasWalk)   type = 'walking';
+  else                type = 'running';
+
+  return {
+    type,
+    wantsPerf, wantsFitter, wantsSterker, wantsBewegen, wantsHerstel,
+    hasConflict, perfBalance,
+    hasRun, hasBike, hasSwim, hasStr, hasWalk,
+    volumeFactor, hasTaper, hasRace,
+    qualityEnabled, qualityFrom, maxIntensity,
+    injKnie:  p.injury.includes('knie') || p.injury.includes('shin'),
+    injHeup:  p.injury.includes('heup'),
+    injRug:   p.injury.includes('rug'),
+    injSch:   p.injury.includes('schouder'),
+    injNek:   p.injury.includes('nek'),
+    injEnkel: p.injury.includes('enkel'),
+  };
+}
+
+// ═══════════════════════════════════════════════════
 //  SCHEMA GENERATOR
 // ═══════════════════════════════════════════════════
 
 function generateSchema() {
   save();
-  const type = determineSchemaType(profile);
+  const cfg  = buildSchemaConfig(profile);
+  const type = cfg.type;
   let weeks = [];
-  if      (type === 'running')  weeks = genRunning(profile);
-  else if (type === 'cycling')  weeks = genCycling(profile);
-  else if (type === 'swimming') weeks = genSwimming(profile);
-  else if (type === 'strength') weeks = genStrength(profile);
-  else if (type === 'recovery') weeks = genRecovery(profile);
-  else if (type === 'walking')  weeks = genWalking(profile);
-  else if (type === 'combo')    weeks = genCombo(profile);
-  else                          weeks = genRunning(profile);
+  if      (type === 'running')  weeks = genRunning(profile, cfg);
+  else if (type === 'cycling')  weeks = genCycling(profile, cfg);
+  else if (type === 'swimming') weeks = genSwimming(profile, cfg);
+  else if (type === 'strength') weeks = genStrength(profile, cfg);
+  else if (type === 'recovery') weeks = genRecovery(profile, cfg);
+  else if (type === 'walking')  weeks = genWalking(profile, cfg);
+  else if (type === 'combo')    weeks = genCombo(profile, cfg);
+  else                          weeks = genRunning(profile, cfg);
 
   const schema = {
-    title:     buildSchemaTitle(type),
-    subtitle:  buildSchemaSubtitle(type),
+    title:     buildSchemaTitle(type, cfg),
+    subtitle:  buildSchemaSubtitle(cfg),
     type,
     profile:   JSON.parse(JSON.stringify(profile)),
     weeks,
@@ -946,63 +1040,35 @@ function generateSchema() {
   window.location.href = 'mijn-schema.html';
 }
 
-// ── TYPE DETECTION ──────────────────────────────────
-function determineSchemaType(p) {
-  const a = p.activities, g = p.goals;
-  if (g.includes('herstellen') && !g.includes('presteren')) return 'recovery';
-  const hasRun  = a.includes('hardlopen');
-  const hasBike = a.includes('fietsen');
-  const hasSwim = a.includes('zwemmen');
-  const hasStr  = a.includes('kracht') || a.includes('thuis');
-  const hasWalk = a.includes('wandelen');
-
-  // Focus slider overrides for cardio+strength combos
-  if ((hasRun || hasBike || hasSwim) && hasStr) {
-    if (p.tuning.focus <= 2) return hasRun ? 'running' : hasBike ? 'cycling' : 'swimming';
-    if (p.tuning.focus >= 4) return 'strength';
-    return 'combo';
-  }
-
-  // Multiple cardio sports → combo
-  if ([hasRun, hasBike, hasSwim, hasWalk].filter(Boolean).length >= 2) return 'combo';
-
-  if (hasRun)  return 'running';
-  if (hasBike) return 'cycling';
-  if (hasSwim) return 'swimming';
-  if (hasStr)  return 'strength';
-  if (hasWalk || g.includes('bewegen')) return 'walking';
-  return 'running';
-}
-
 // ── SCHEMA TITLES ───────────────────────────────────
-function buildSchemaTitle(type) {
+function buildSchemaTitle(type, cfg) {
   const g = profile.goals, a = profile.activities;
+  if (cfg.hasConflict) return 'Herstel & prestatieplan';
   if (type === 'running') {
-    if (g.includes('presteren') && profile.doel) return profile.doel;
-    if (g.includes('presteren')) return 'Hardloop prestatieplan';
+    if (cfg.wantsPerf && profile.doel) return profile.doel;
+    if (cfg.wantsPerf) return 'Hardloop prestatieplan';
+    if (cfg.wantsHerstel) return 'Hardloop herstelplan';
     return 'Hardloop opbouwplan';
   }
-  if (type === 'cycling') {
-    return g.includes('presteren') ? 'Fiets prestatieplan' : 'Fiets opbouwplan';
-  }
-  if (type === 'swimming') {
-    return g.includes('presteren') ? 'Zwem prestatieplan' : 'Zwem opbouwplan';
-  }
+  if (type === 'cycling') return cfg.wantsPerf ? 'Fiets prestatieplan' : 'Fiets opbouwplan';
+  if (type === 'swimming') return cfg.wantsPerf ? 'Zwem prestatieplan' : 'Zwem opbouwplan';
   if (type === 'strength') {
     if (a.includes('thuis') && !a.includes('kracht') && profile.gym !== 'ja') return 'Thuis trainingsplan';
-    return 'Kracht & conditieplan';
+    return cfg.wantsSterker ? 'Kracht progressieplan' : 'Kracht & conditieplan';
   }
   if (type === 'recovery') return 'Herstel & mobiliteitsplan';
   if (type === 'walking')  return 'Actief bewegingsplan';
   if (type === 'combo')    return 'Gecombineerd trainingsplan';
   return 'Persoonlijk trainingsplan';
 }
-function buildSchemaSubtitle(type) {
+
+function buildSchemaSubtitle(cfg) {
   const levelMap = {nauwelijks:'beginner', soms:'licht actief', regelmatig:'actief', actief:'gevorderd'};
   const lvl = levelMap[profile.actief] || '';
   const wk  = profile.tuning.duur + ' weken';
   const sx  = profile.tuning.sessies + 'x per week';
-  return [lvl, wk, sx].filter(Boolean).join(' · ');
+  const bal = cfg.hasConflict ? ['','puur herstel','herstelgericht','gebalanceerd','prestatiegercht','puur presteren'][cfg.perfBalance] : '';
+  return [lvl, wk, sx, bal].filter(Boolean).join(' · ');
 }
 
 // ── HELPERS ─────────────────────────────────────────
@@ -1032,15 +1098,14 @@ function isRecoveryWeek(w, curve) {
   const interval = curve <= 2 ? 4 : 3;
   return w > 1 && w % interval === 0;
 }
-function isTaperWeek(w, total, isPerf) {
-  if (!isPerf || total < 6) return false;
+function isTaperWeek(w, total, hasTaper) {
+  if (!hasTaper || total < 6) return false;
   return w >= total - (total >= 12 ? 2 : 1);
 }
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
 function round5(n) { return Math.round(n / 5) * 5; }
 
 // ── INJURY FACTORS ──────────────────────────────────
-// Blessures verlagen startvolume en maximale progressiesnelheid
 function injuryRunFactor(p) {
   const inj = p.injury || [];
   if (!inj.length || inj.includes('geen')) return { vol: 1.0, maxRate: null };
@@ -1069,52 +1134,46 @@ function injuryBikeFactor(p) {
 }
 
 // ── RUNNING GENERATOR ────────────────────────────────
-function genRunning(p) {
+function genRunning(p, cfg) {
   const total   = p.tuning.duur;
   const sess    = clamp(p.tuning.sessies, 1, 5);
   const curve   = p.tuning.curve;
-  const isPerf  = p.goals.includes('presteren');
-  const injKnie = p.injury.includes('knie') || p.injury.includes('shin');
-  const injHeup = p.injury.includes('heup');
-  const injRug  = p.injury.includes('rug');
-  const injEnkel = p.injury.includes('enkel');
   const { vol: injVol, maxRate } = injuryRunFactor(p);
 
-  // Max 10% per week (evidence-based), further capped by injury
   let increaseRate = [null, 0.05, 0.07, 0.10, 0.12, 0.15][curve];
   if (maxRate !== null) increaseRate = Math.min(increaseRate, maxRate);
 
-  // Quality sessions delayed when injured — laat lichaam adapteren
-  const qualityFrom = (injKnie || injEnkel) ? 5 : curve >= 4 ? 2 : 3;
+  // cfg stuurt kwaliteitssessies en volume
+  const qualityFrom = cfg.injKnie || cfg.injEnkel ? Math.max(cfg.qualityFrom, 5) : cfg.qualityFrom;
   const days = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
 
-  let startKm = runStartKm(p, injVol);
+  let startKm = runStartKm(p, injVol * cfg.volumeFactor);
   let curKm   = startKm;
   let maxKm   = 0;
   const weeks = [];
 
   for (let w = 1; w <= total; w++) {
     const recov = isRecoveryWeek(w, curve);
-    const taper = isTaperWeek(w, total, isPerf);
+    const taper = isTaperWeek(w, total, cfg.hasTaper);
     let weekKm;
     if (taper)      weekKm = Math.round(maxKm * (w === total ? 0.45 : 0.65));
     else if (recov) weekKm = Math.round(curKm * 0.70);
     else            weekKm = Math.round(curKm);
     maxKm = Math.max(maxKm, weekKm);
 
-    const hasQuality = !recov && !taper && w >= qualityFrom && sess >= 3;
+    const hasQuality = cfg.qualityEnabled && !recov && !taper && w >= qualityFrom && sess >= 3;
     const isLate     = w >= Math.round(total * 0.55);
 
     const sessions = days.map((day, i) => {
       const isLong = i === days.length - 1;
-      const isQual = hasQuality && i === 1;
-      return runSession(day, i, isLong, isQual, isLate, weekKm, sess, w, total, taper, recov, isPerf, injKnie, injHeup, injRug, injEnkel);
+      const isQual = hasQuality && i === 1 && cfg.maxIntensity !== 'easy';
+      return runSession(day, i, isLong, isQual, isLate, weekKm, sess, w, total, taper, recov, cfg);
     });
 
     weeks.push({
       weekNum: w,
       weekType: taper ? 'taper' : recov ? 'recovery' : 'normal',
-      title: runWeekTitle(w, total, weekKm, recov, taper),
+      title: runWeekTitle(w, total, recov, taper, cfg),
       weekVolume: weekKm + ' km',
       sessions
     });
@@ -1132,8 +1191,9 @@ function runStartKm(p, injVol = 1.0) {
   return clamp(Math.round(base * injVol / 2) * 2, 4, 60);
 }
 
-function runSession(day, idx, isLong, isQual, isLate, weekKm, sess, w, total, taper, recov, isPerf, injKnie, injHeup, injRug, injEnkel) {
-  if (taper && w === total && isLong && isPerf) {
+function runSession(day, idx, isLong, isQual, isLate, weekKm, sess, w, total, taper, recov, cfg) {
+  const { injKnie, injHeup, injRug, injEnkel, hasRace } = cfg;
+  if (taper && w === total && isLong && hasRace) {
     return { day, name: 'Wedstrijd 🏅', type: 'race', volume: '—',
       desc: 'Warme-up 10–15 min rustig. Zet alles op alles — dit is waarvoor je getraind hebt!',
       tags: ['race'] };
@@ -1149,7 +1209,7 @@ function runSession(day, idx, isLong, isQual, isLate, weekKm, sess, w, total, ta
     const km = clamp(Math.round(weekKm * (injKnie || injEnkel ? 0.35 : 0.42)), 4, 35);
     let desc = `Rustig aaneengesloten tempo — je moet makkelijk kunnen praten. `;
     if (km >= 10) desc += `Neem gels of water mee vanaf 75 min. `;
-    if (injKnie)  desc += `Let op je kniepositie — vermijd heuvelwerk. Activeer glutes voor de run (bridges, clamshells). `;
+    if (injKnie)  desc += `Let op je kniepositie — vermijd heuvelwerk. Activeer glutes voor de run. `;
     if (injEnkel) desc += `Loop op vlak terrein. Stop als je enkel opzwelt of pijn geeft. `;
     if (injHeup)  desc += `Houd je stap compact, geen overstriding. `;
     if (injRug)   desc += `Stabiele romphouding — coreoefeningen voor de run helpen. `;
@@ -1157,7 +1217,7 @@ function runSession(day, idx, isLong, isQual, isLate, weekKm, sess, w, total, ta
   }
   if (isQual) {
     const km = clamp(Math.round(weekKm * 0.24), 4, 16);
-    if (isLate) {
+    if (isLate && cfg.maxIntensity === 'interval') {
       const reps = w >= Math.round(total * 0.75) ? '6–8' : '4–6';
       const injNote = injKnie ? ' Vermijd harde ondergrond — loop op gras of kunststofbaan.' : '';
       const desc = `Warm op 15 min rustig. Hoofdset: ${reps}× 3 min op 5km-inspanning (~90% max HR) met 90 sec herstel. Koel af 10 min.${injNote}`;
@@ -1168,62 +1228,59 @@ function runSession(day, idx, isLong, isQual, isLate, weekKm, sess, w, total, ta
       return { day, name: 'Tempoduurloop', type: 'tempo', volume: km + ' km', desc, tags: ['quality'] };
     }
   }
-  // Easy run
   const km = clamp(Math.round(weekKm * (idx === 0 ? 0.30 : 0.26)), 3, 14);
   let desc = `Rustig duurlooptempo — Zone 2 (conversationeel). ${w <= 2 ? 'Weersta de verleiding om harder te lopen. De basis wordt hier gelegd.' : 'Actief herstel en aerobe opbouw.'}`;
   if (injKnie || injEnkel) desc += ` Na de loop: 5 min stretch (kuit, heupflexor, IT-band) + eventueel ijs op de probleemplek.`;
   return { day, name: 'Duurloop', type: 'easy', volume: km + ' km', desc, tags: ['easy'] };
 }
 
-function runWeekTitle(w, total, km, recov, taper) {
-  if (taper) return w === total ? 'Race week' : 'Afbouwweek';
+function runWeekTitle(w, total, recov, taper, cfg) {
+  if (taper) return w === total && cfg.hasRace ? 'Race week' : 'Afbouwweek';
   if (recov) return 'Herstelweek';
+  if (cfg.wantsHerstel && cfg.perfBalance <= 2) return w <= Math.round(total*0.5) ? 'Activatie' : 'Voorzichtig opbouwen';
   return w <= Math.round(total * 0.35) ? 'Basis opbouwen'
        : w <= Math.round(total * 0.65) ? 'Kracht opbouwen'
        : 'Piekfase';
 }
 
 // ── SWIMMING GENERATOR ───────────────────────────────
-function genSwimming(p) {
+function genSwimming(p, cfg) {
   const total   = p.tuning.duur;
   const sess    = clamp(p.tuning.sessies, 1, 5);
   const curve   = p.tuning.curve;
-  const isPerf  = p.goals.includes('presteren');
-  const injSch  = p.injury.includes('schouder');
-  const injNek  = p.injury.includes('nek');
   const { vol: injVol } = injurySwimFactor(p);
   const increaseRate = [null, 0.05, 0.07, 0.09, 0.11, 0.14][curve];
   const days = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
 
   const distBase = {500:800, 1000:1500, 1500:2500, 3800:5000}[p.zw_afstand] || 1500;
   const lvl = {nauwelijks:0.35, soms:0.55, regelmatig:0.80, actief:1.0}[p.actief] || 0.55;
-  let curM = clamp(Math.round(distBase * lvl * injVol / 100) * 100, 400, 8000);
+  let curM = clamp(Math.round(distBase * lvl * injVol * cfg.volumeFactor / 100) * 100, 400, 8000);
   let maxM = 0;
   const weeks = [];
 
   for (let w = 1; w <= total; w++) {
     const recov = isRecoveryWeek(w, curve);
-    const taper = isTaperWeek(w, total, isPerf);
+    const taper = isTaperWeek(w, total, cfg.hasTaper);
     let weekM;
     if (taper)      weekM = Math.round(maxM * (w === total ? 0.50 : 0.70));
     else if (recov) weekM = Math.round(curM * 0.70);
     else            weekM = Math.round(curM);
     maxM = Math.max(maxM, weekM);
 
-    const qualityFrom = injSch ? 5 : 3;
-    const hasQuality  = !recov && !taper && w >= qualityFrom && sess >= 2;
+    const qualityFrom = cfg.injSch ? Math.max(cfg.qualityFrom, 5) : cfg.qualityFrom;
+    const hasQuality  = cfg.qualityEnabled && !recov && !taper && w >= qualityFrom && sess >= 2;
     const isLate      = w >= Math.round(total * 0.55);
 
     const sessions = days.map((day, i) => {
       const isLong = i === days.length - 1;
-      const isQual = hasQuality && i === 1;
-      return swimSession(day, i, isLong, isQual, isLate, weekM, sess, w, total, taper, recov, isPerf, injSch, injNek);
+      const isQual = hasQuality && i === 1 && cfg.maxIntensity !== 'easy';
+      return swimSession(day, i, isLong, isQual, isLate, weekM, sess, w, total, taper, recov, cfg);
     });
 
     weeks.push({
       weekNum: w,
       weekType: taper ? 'taper' : recov ? 'recovery' : 'normal',
-      title: swimWeekTitle(w, total, recov, taper),
+      title: swimWeekTitle(w, total, recov, taper, cfg),
       weekVolume: Math.round(weekM / 100) * 100 + ' m',
       sessions
     });
@@ -1233,8 +1290,9 @@ function genSwimming(p) {
   return weeks;
 }
 
-function swimSession(day, idx, isLong, isQual, isLate, weekM, sess, w, total, taper, recov, isPerf, injSch, injNek) {
-  if (taper && w === total && isLong && isPerf) {
+function swimSession(day, idx, isLong, isQual, isLate, weekM, sess, w, total, taper, recov, cfg) {
+  const { injSch, injNek, hasRace } = cfg;
+  if (taper && w === total && isLong && hasRace) {
     return { day, name: 'Wedstrijd 🏅', type: 'race', volume: '—',
       desc: 'Warm op 400m rustig. Zet alles op alles — dit is waarvoor je getraind hebt!',
       tags: ['race'] };
@@ -1250,28 +1308,29 @@ function swimSession(day, idx, isLong, isQual, isLate, weekM, sess, w, total, ta
                    : injNek ? ' Gebruik snorkel om nekrotatie te beperken.' : '';
   if (isLong) {
     const m = clamp(Math.round(weekM * 0.40 / 100) * 100, 400, 5000);
-    const desc = `Aaneengesloten rustig zwemmen — Zone 2 tempo. Focus op glijfase en lange slag.${strokeNote}`;
-    return { day, name: 'Duurzwemmen', type: 'long', volume: m + ' m', desc, tags: ['long'] };
+    return { day, name: 'Duurzwemmen', type: 'long', volume: m + ' m',
+      desc: `Aaneengesloten rustig zwemmen — Zone 2 tempo. Focus op glijfase en lange slag.${strokeNote}`, tags: ['long'] };
   }
   if (isQual) {
-    if (isLate) {
+    if (isLate && cfg.maxIntensity === 'interval') {
       const reps = w >= Math.round(total * 0.75) ? '8–10' : '5–8';
       const m = clamp(Math.round(weekM * 0.28 / 100) * 100, 300, 3000);
-      const desc = `Warm op 200–400m rustig. Hoofdset: ${reps}× 100m op race-tempo met 20 sec rust. Koel af 200m.${strokeNote}`;
-      return { day, name: 'Intervalzwemmen', type: 'interval', volume: m + ' m', desc, tags: ['quality'] };
+      return { day, name: 'Intervalzwemmen', type: 'interval', volume: m + ' m',
+        desc: `Warm op 200–400m rustig. Hoofdset: ${reps}× 100m op race-tempo met 20 sec rust. Koel af 200m.${strokeNote}`, tags: ['quality'] };
     } else {
       const m = clamp(Math.round(weekM * 0.30 / 100) * 100, 400, 3000);
-      const desc = `Warm op 300m. Hoofdset: 4–6× 200m op tempotempo (Zone 3–4) met 30 sec rust. Koel af 200m.${strokeNote}`;
-      return { day, name: 'Tempozwemmen', type: 'tempo', volume: m + ' m', desc, tags: ['quality'] };
+      return { day, name: 'Tempozwemmen', type: 'tempo', volume: m + ' m',
+        desc: `Warm op 300m. Hoofdset: 4–6× 200m op tempotempo (Zone 3–4) met 30 sec rust. Koel af 200m.${strokeNote}`, tags: ['quality'] };
     }
   }
   const m = clamp(Math.round(weekM * 0.30 / 100) * 100, 300, 2000);
   const drillNote = w <= 3 ? ' Focus op catch-up drill en single-arm voor slagtechniek.' : ' Focus op lage cadans en maximale glijfase.';
-  return { day, name: 'Techniekzwemmen', type: 'easy', volume: m + ' m', desc: `Rustig techniekzwemmen — Zone 2.${drillNote}${strokeNote}`, tags: ['easy'] };
+  return { day, name: 'Techniekzwemmen', type: 'easy', volume: m + ' m',
+    desc: `Rustig techniekzwemmen — Zone 2.${drillNote}${strokeNote}`, tags: ['easy'] };
 }
 
-function swimWeekTitle(w, total, recov, taper) {
-  if (taper) return w === total ? 'Race week' : 'Afbouwweek';
+function swimWeekTitle(w, total, recov, taper, cfg) {
+  if (taper) return w === total && cfg.hasRace ? 'Race week' : 'Afbouwweek';
   if (recov) return 'Herstelweek';
   return w <= Math.round(total * 0.35) ? 'Techniek & basis'
        : w <= Math.round(total * 0.65) ? 'Volume opbouwen'
@@ -1279,45 +1338,42 @@ function swimWeekTitle(w, total, recov, taper) {
 }
 
 // ── CYCLING GENERATOR ────────────────────────────────
-function genCycling(p) {
+function genCycling(p, cfg) {
   const total   = p.tuning.duur;
   const sess    = clamp(p.tuning.sessies, 1, 5);
   const curve   = p.tuning.curve;
-  const isPerf  = p.goals.includes('presteren');
-  const injKnie = p.injury.includes('knie');
-  const injRug  = p.injury.includes('rug');
   const { vol: injVol } = injuryBikeFactor(p);
   const increaseRate = [null, 0.05, 0.07, 0.10, 0.12, 0.15][curve];
   const days    = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
 
   const distBase = {20:30, 40:50, 60:70, 80:90, 100:110}[p.ft_afstand] || 50;
   const lvl      = {nauwelijks:0.35, soms:0.55, regelmatig:0.80, actief:1.0}[p.actief] || 0.55;
-  let curKm      = clamp(Math.round(distBase * lvl * sess * injVol * 0.8 / 10) * 10, 20, 200);
+  let curKm      = clamp(Math.round(distBase * lvl * sess * injVol * cfg.volumeFactor * 0.8 / 10) * 10, 20, 200);
   let maxKm = 0;
   const weeks = [];
 
   for (let w = 1; w <= total; w++) {
     const recov = isRecoveryWeek(w, curve);
-    const taper = isTaperWeek(w, total, isPerf);
+    const taper = isTaperWeek(w, total, cfg.hasTaper);
     let weekKm;
     if (taper)      weekKm = Math.round(maxKm * (w === total ? 0.5 : 0.70));
     else if (recov) weekKm = Math.round(curKm * 0.70);
     else            weekKm = Math.round(curKm);
     maxKm = Math.max(maxKm, weekKm);
 
-    const hasQuality = !recov && !taper && w >= 3 && sess >= 3;
+    const hasQuality = cfg.qualityEnabled && !recov && !taper && w >= cfg.qualityFrom && sess >= 3;
     const isLate     = w >= Math.round(total * 0.55);
 
     const sessions = days.map((day, i) => {
       const isLong = i === days.length - 1;
-      const isQual = hasQuality && i === 1;
+      const isQual = hasQuality && i === 1 && cfg.maxIntensity !== 'easy';
       const km     = isLong ? clamp(Math.round(weekKm * 0.45), 15, 120)
                    : isQual ? clamp(Math.round(weekKm * 0.25), 15, 60)
                    :          clamp(Math.round(weekKm * 0.28), 10, 50);
-      const name   = isLong ? 'Lange rit' : isQual ? (isLate ? 'Intervalrit' : 'Tempotraining') : 'Herstelrit';
-      const type   = isLong ? 'long' : isQual ? (isLate ? 'interval' : 'tempo') : 'easy';
+      const name   = isLong ? 'Lange rit' : isQual ? (isLate && cfg.maxIntensity==='interval' ? 'Intervalrit' : 'Tempotraining') : 'Herstelrit';
+      const type   = isLong ? 'long' : isQual ? (isLate && cfg.maxIntensity==='interval' ? 'interval' : 'tempo') : 'easy';
       let desc = '';
-      if (type === 'easy')     desc = `Rustig herstelritme, Zone 2. Trapfrequentie hoog houden (85–95 rpm).${injKnie ? ' Gebruik een lichte versnelling om kniebelasting te beperken.' : ''}${injRug ? ' Stel zadel- en stuurhoogte zo in dat je niet te ver voorover hangt.' : ''}`;
+      if (type === 'easy')     desc = `Rustig herstelritme, Zone 2. Trapfrequentie hoog houden (85–95 rpm).${cfg.injKnie?' Lichte versnelling om kniebelasting te beperken.':''}${cfg.injRug?' Stel zadel- en stuurhoogte in zodat je niet te ver voorover hangt.':''}`;
       if (type === 'tempo')    desc = `Warm op 15 min. Hoofdset: ${clamp(Math.round(km*4),15,45)} min tempoduur Zone 3–4. Koel af 10 min.`;
       if (type === 'interval') desc = `Warm op 15 min. Hoofdset: 5–8× 2 min hoog vermogen (Zone 5) met 2 min herstel. Koel af.`;
       if (type === 'long')     desc = `Rustig en aaneengesloten. Focus op aerobe opbouw en vetverbranding. Neem voeding mee vanaf 90 min.`;
@@ -1326,7 +1382,7 @@ function genCycling(p) {
 
     weeks.push({
       weekNum: w, weekType: taper ? 'taper' : recov ? 'recovery' : 'normal',
-      title: recov ? 'Herstelweek' : taper ? (w===total?'Wedstrijd':'Afbouwweek') : w <= Math.round(total*0.4) ? 'Basisfase' : w <= Math.round(total*0.7) ? 'Opbouwfase' : 'Piekfase',
+      title: recov ? 'Herstelweek' : taper ? (w===total&&cfg.hasRace?'Wedstrijd':'Afbouwweek') : w <= Math.round(total*0.4) ? 'Basisfase' : w <= Math.round(total*0.7) ? 'Opbouwfase' : 'Piekfase',
       weekVolume: weekKm + ' km', sessions
     });
     if (!recov && !taper) curKm *= (1 + increaseRate);
@@ -1335,32 +1391,31 @@ function genCycling(p) {
 }
 
 // ── STRENGTH GENERATOR ───────────────────────────────
-function genStrength(p) {
+function genStrength(p, cfg) {
   const total   = p.tuning.duur;
   const sess    = clamp(p.tuning.sessies, 1, 5);
   const curve   = p.tuning.curve;
   const isHome  = p.activities.includes('thuis') && !p.activities.includes('kracht') && p.gym !== 'ja';
-  const hasGym  = p.gym === 'ja' || (p.gym === 'soms') || p.activities.includes('kracht');
-  const injRug  = p.injury.includes('rug');
-  const injSch  = p.injury.includes('schouder');
+  const hasGym  = p.gym === 'ja' || p.gym === 'soms' || p.activities.includes('kracht');
   const increaseRate = [null, 0.03, 0.04, 0.05, 0.07, 0.09][curve];
   const days    = STR_DAYS_MAP[sess] || STR_DAYS_MAP[3];
 
+  // Sterker-doel → volledige krachtfasen; fitter-doel → stopt bij hypertrofie
+  const maxPhase = cfg.wantsSterker ? 'strength' : 'hypertrophy';
   const startSets = {nauwelijks: 2, soms: 3, regelmatig: 3, actief: 4}[p.actief] || 3;
-  let curSets = startSets;
+  let curSets = Math.round(startSets * cfg.volumeFactor);
   const weeks = [];
 
   for (let w = 1; w <= total; w++) {
     const recov = isRecoveryWeek(w, curve);
     const pct   = w / total;
-    const phase = pct < 0.30 ? 'adaptation' : pct < 0.65 ? 'hypertrophy' : pct < 0.85 ? 'strength' : 'consolidation';
+    const phaseRaw = pct < 0.30 ? 'adaptation' : pct < 0.65 ? 'hypertrophy' : pct < 0.85 ? 'strength' : 'consolidation';
+    const phase = maxPhase === 'hypertrophy' && phaseRaw === 'strength' ? 'hypertrophy' : phaseRaw;
     const reps  = phase === 'adaptation' ? '12–15' : phase === 'hypertrophy' ? '8–12' : phase === 'strength' ? '5–8' : '8–12';
     const sets  = recov ? Math.max(2, curSets - 1) : curSets;
     const phaseTitle = {adaptation:'Aanpassingsfase', hypertrophy:'Hypertrofase', strength:'Krachtfase', consolidation:'Consolidatiefase'}[phase];
 
-    const sessions = days.map((day, i) => {
-      return strSession(day, i, sess, sets, reps, phase, isHome, hasGym, injRug, injSch, recov, w);
-    });
+    const sessions = days.map((day, i) => strSession(day, i, sess, sets, reps, phase, isHome, hasGym, cfg.injRug, cfg.injSch, recov, w));
 
     weeks.push({
       weekNum: w, weekType: recov ? 'recovery' : 'normal',
@@ -1381,10 +1436,8 @@ function strSession(day, idx, totalSess, sets, reps, phase, isHome, hasGym, injR
   else splitType = ['push','pull','legs','upper','lower'][idx % 5];
 
   if (recov) {
-    return { day, name: 'Herstel & mobiliteit', type: 'mobility',
-      volume: '20–30 min',
-      desc: 'Lichte stretching, foam rolling en mobiliteitswerk. Geen zware belasting deze week.',
-      tags: ['easy'] };
+    return { day, name: 'Herstel & mobiliteit', type: 'mobility', volume: '20–30 min',
+      desc: 'Lichte stretching, foam rolling en mobiliteitswerk. Geen zware belasting deze week.', tags: ['easy'] };
   }
 
   const s = sets, r = reps;
@@ -1407,7 +1460,7 @@ function strSession(day, idx, totalSess, sets, reps, phase, isHome, hasGym, injR
     exercises = isHome
       ? [`${s}× ${r} split squat`, `${s}× ${r} hip thrust`, `${s}× ${r} Roemeense deadlift (één been)`, `${s}× ${r} calf raises`, `${s}× 40 sec side plank`]
       : [`${s}× ${r} squat`, `${s}× ${r} Romanian deadlift${injRug?' (lichte beugel, controle)':''}`, `${s}× ${r} leg press`, `${s}× ${r} leg curl`, `${s}× ${r} hip thrust`, `${s}× ${r} calf raise`];
-    desc = `Heup-, bil- en beenspieroefeningen. ${injRug?'Vermijd axiale belasting (geen zware squats) — focus op heupscharnieren.':''}`;
+    desc = `Heup-, bil- en beenspieroefeningen. ${injRug?'Vermijd axiale belasting — focus op heupscharnieren.':''}`;
   } else if (splitType === 'push') {
     name = 'Push — borst, schouder, triceps';
     exercises = isHome
@@ -1428,16 +1481,11 @@ function strSession(day, idx, totalSess, sets, reps, phase, isHome, hasGym, injR
     desc = `Benen en core. ${injRug?'Vermijd hoge axiale belasting — gebruik leg press in plaats van barbell squat.':''}`;
   }
 
-  return {
-    day, name, type: 'strength',
-    volume: sets + '×',
-    desc: desc + '\n\n' + exercises.join('\n'),
-    tags: ['quality']
-  };
+  return { day, name, type: 'strength', volume: sets + '×', desc: desc + '\n\n' + exercises.join('\n'), tags: ['quality'] };
 }
 
 // ── RECOVERY GENERATOR ───────────────────────────────
-function genRecovery(p) {
+function genRecovery(p, cfg) {
   const total = p.tuning.duur;
   const sess  = clamp(p.tuning.sessies, 1, 4);
   const days  = WALK_DAYS_MAP[sess] || WALK_DAYS_MAP[3];
@@ -1454,10 +1502,7 @@ function genRecovery(p) {
 
   for (let w = 1; w <= total; w++) {
     const pct = w / total;
-    const sessions = days.map((day, i) => {
-      const s = sessions_pool[(i + w) % sessions_pool.length];
-      return { ...s, day };
-    });
+    const sessions = days.map((day, i) => ({ ...sessions_pool[(i + w) % sessions_pool.length], day }));
     weeks.push({
       weekNum: w, weekType: 'normal',
       title: pct < 0.4 ? 'Activatie & rust' : pct < 0.7 ? 'Voorzichtig opbouwen' : 'Verdere opbouw',
@@ -1469,14 +1514,14 @@ function genRecovery(p) {
 }
 
 // ── WALKING GENERATOR ────────────────────────────────
-function genWalking(p) {
+function genWalking(p, cfg) {
   const total = p.tuning.duur;
   const sess  = clamp(p.tuning.sessies, 1, 5);
   const curve = p.tuning.curve;
   const days  = WALK_DAYS_MAP[sess] || WALK_DAYS_MAP[3];
   const increaseRate = [null, 0.04, 0.06, 0.08, 0.10, 0.13][curve];
 
-  let startMin = {nauwelijks:20, soms:30, regelmatig:40, actief:50}[p.actief] || 30;
+  let startMin = Math.round(({nauwelijks:20, soms:30, regelmatig:40, actief:50}[p.actief] || 30) * cfg.volumeFactor);
   let curMin   = startMin;
   const weeks  = [];
 
@@ -1486,13 +1531,10 @@ function genWalking(p) {
     const sessions = days.map((day, i) => {
       const isLong = i === days.length - 1 && sess >= 2;
       const min    = isLong ? Math.round(weekMin * 0.42 * sess) : Math.round(weekMin);
-      const name   = isLong ? 'Lange wandeling' : 'Actieve wandeling';
-      const desc   = isLong
-        ? `Langere tocht in rustig tempo. Goede schoenen, neem water mee. Geniet van de omgeving.`
-        : w <= 3
-        ? `Begin rustig en vind je ritme. Bewuste ademhaling, rechte houding.`
-        : `Stevig wandeltempo — je hartslag mag iets hoger. Nordic poles optioneel.`;
-      return { day, name, type: isLong ? 'long' : 'easy', volume: min + ' min', desc, tags: [isLong ? 'long' : 'easy'] };
+      const desc   = isLong ? `Langere tocht in rustig tempo. Goede schoenen, neem water mee.`
+                   : w <= 3 ? `Begin rustig en vind je ritme. Bewuste ademhaling, rechte houding.`
+                   :          `Stevig wandeltempo — je hartslag mag iets hoger. Nordic poles optioneel.`;
+      return { day, name: isLong ? 'Lange wandeling' : 'Actieve wandeling', type: isLong ? 'long' : 'easy', volume: min + ' min', desc, tags: [isLong ? 'long' : 'easy'] };
     });
     weeks.push({
       weekNum: w, weekType: recov ? 'recovery' : 'normal',
@@ -1506,22 +1548,12 @@ function genWalking(p) {
 }
 
 // ── COMBO GENERATOR (alle sport-combinaties) ─────────
-function genCombo(p) {
+function genCombo(p, cfg) {
   const total  = p.tuning.duur;
   const curve  = p.tuning.curve;
   const focus  = p.tuning.focus;
   const as     = p.tuning.activitySessions || {};
 
-  const hasRun  = p.activities.includes('hardlopen');
-  const hasBike = p.activities.includes('fietsen');
-  const hasSwim = p.activities.includes('zwemmen');
-  const hasStr  = p.activities.includes('kracht') || p.activities.includes('thuis');
-  const hasWalk = p.activities.includes('wandelen');
-
-  const injKnie = p.injury.includes('knie') || p.injury.includes('shin');
-  const injRug  = p.injury.includes('rug');
-  const injSch  = p.injury.includes('schouder');
-  const injNek  = p.injury.includes('nek');
   const { vol: runInjVol, maxRate } = injuryRunFactor(p);
   const { vol: swimInjVol } = injurySwimFactor(p);
   const { vol: bikeInjVol } = injuryBikeFactor(p);
@@ -1529,24 +1561,23 @@ function genCombo(p) {
   let increaseRate = [null, 0.05, 0.07, 0.09, 0.11, 0.14][curve];
   if (maxRate !== null) increaseRate = Math.min(increaseRate, maxRate);
 
-  // Verdeel sessies per sport op basis van gebruikersinput of afleiding
+  // Verdeel sessies per sport
   let sportSessions = {};
   if (Object.keys(as).length > 0) {
     sportSessions = { ...as };
   } else {
     const totalSess = clamp(p.tuning.sessies, 2, 6);
-    const strSess = hasStr ? Math.max(1, Math.round(totalSess * (focus >= 4 ? 0.5 : 0.35))) : 0;
+    const strSess = cfg.hasStr ? Math.max(1, Math.round(totalSess * (focus >= 4 ? 0.5 : 0.35))) : 0;
     const cardioSess = totalSess - strSess;
-    const cardioSports = [hasRun, hasBike, hasSwim, hasWalk].filter(Boolean).length || 1;
+    const cardioSports = [cfg.hasRun, cfg.hasBike, cfg.hasSwim, cfg.hasWalk].filter(Boolean).length || 1;
     const perCardio = Math.max(1, Math.round(cardioSess / cardioSports));
-    if (hasRun)  sportSessions.hardlopen = perCardio;
-    if (hasBike) sportSessions.fietsen   = perCardio;
-    if (hasSwim) sportSessions.zwemmen   = perCardio;
-    if (hasWalk) sportSessions.wandelen  = Math.max(1, Math.round(perCardio * 0.6));
-    if (hasStr)  sportSessions.kracht    = strSess;
+    if (cfg.hasRun)  sportSessions.hardlopen = perCardio;
+    if (cfg.hasBike) sportSessions.fietsen   = perCardio;
+    if (cfg.hasSwim) sportSessions.zwemmen   = perCardio;
+    if (cfg.hasWalk) sportSessions.wandelen  = Math.max(1, Math.round(perCardio * 0.6));
+    if (cfg.hasStr)  sportSessions.kracht    = strSess;
   }
 
-  // Bouw gesorteerde dagenlijst: wissel cardio en kracht af voor herstel
   const allDays = ['Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag','Zondag'];
   const cardioList = [
     ...Array(sportSessions.hardlopen || 0).fill('hardlopen'),
@@ -1555,28 +1586,24 @@ function genCombo(p) {
     ...Array(sportSessions.wandelen  || 0).fill('wandelen'),
   ];
   const strList = Array(sportSessions.kracht || sportSessions.thuis || 0).fill('kracht');
-
-  // Wissel af: cardio, kracht, cardio, kracht...
   const merged = [];
   const maxLen = Math.max(cardioList.length, strList.length);
   for (let i = 0; i < maxLen; i++) {
     if (cardioList[i]) merged.push(cardioList[i]);
     if (strList[i])    merged.push(strList[i]);
   }
-
   const schedule = merged.map((sport, i) => ({ day: allDays[i] || allDays[allDays.length-1], sport }));
 
-  // Startvolumes per sport
-  let runKm  = runStartKm(p, runInjVol);
+  // Startvolumes per sport (injury + cfg.volumeFactor)
+  let runKm  = runStartKm(p, runInjVol * cfg.volumeFactor);
   const distBike = {20:30,40:50,60:70,80:90,100:110}[p.ft_afstand] || 50;
   const lvl      = {nauwelijks:0.35,soms:0.55,regelmatig:0.80,actief:1.0}[p.actief] || 0.55;
-  let bikeKm = clamp(Math.round(distBike * lvl * bikeInjVol * 0.8 / 10) * 10, 20, 200);
+  let bikeKm = clamp(Math.round(distBike * lvl * bikeInjVol * cfg.volumeFactor * 0.8 / 10) * 10, 20, 200);
   const distSwim = {500:800,1000:1500,1500:2500,3800:5000}[p.zw_afstand] || 1500;
-  let swimM  = clamp(Math.round(distSwim * lvl * swimInjVol / 100) * 100, 400, 8000);
+  let swimM  = clamp(Math.round(distSwim * lvl * swimInjVol * cfg.volumeFactor / 100) * 100, 400, 8000);
 
   let maxRunKm = 0, maxBikeKm = 0, maxSwimM = 0;
-  const isPerf = p.goals.includes('presteren');
-  let strSets  = {nauwelijks:2, soms:3, regelmatig:3, actief:4}[p.actief] || 3;
+  let strSets  = Math.round(({nauwelijks:2,soms:3,regelmatig:3,actief:4}[p.actief]||3) * cfg.volumeFactor);
 
   const runCount  = schedule.filter(s => s.sport === 'hardlopen').length;
   const bikeCount = schedule.filter(s => s.sport === 'fietsen').length;
@@ -1586,7 +1613,7 @@ function genCombo(p) {
   const weeks = [];
   for (let w = 1; w <= total; w++) {
     const recov = isRecoveryWeek(w, curve);
-    const taper = isTaperWeek(w, total, isPerf);
+    const taper = isTaperWeek(w, total, cfg.hasTaper);
 
     const weekRunKm  = taper ? Math.round(maxRunKm  * (w===total?0.5:0.65)) : recov ? Math.round(runKm  * 0.70) : Math.round(runKm);
     const weekBikeKm = taper ? Math.round(maxBikeKm * (w===total?0.5:0.65)) : recov ? Math.round(bikeKm * 0.70) : Math.round(bikeKm);
@@ -1595,26 +1622,25 @@ function genCombo(p) {
     maxBikeKm = Math.max(maxBikeKm, weekBikeKm);
     maxSwimM  = Math.max(maxSwimM, weekSwimM);
 
-    const counters = { hardlopen: 0, fietsen: 0, zwemmen: 0, kracht: 0 };
+    const counters = { hardlopen: 0, fietsen: 0, zwemmen: 0, wandelen: 0, kracht: 0 };
     const sessions = schedule.map(({ day, sport }) => {
-      const idx = counters[sport] !== undefined ? counters[sport]++ : 0;
+      const idx = counters[sport]++;
 
       if (sport === 'hardlopen') {
         const isLong = idx === runCount - 1;
-        const isQual = !isLong && idx === 1 && runCount >= 3 && !recov && w >= (injKnie ? 5 : 3);
-        return runSession(day, idx, isLong, isQual, w >= Math.round(total*0.55),
-          weekRunKm, runCount, w, total, taper, recov, isPerf, injKnie, false, injRug, false);
+        const isQual = !isLong && idx === 1 && runCount >= 3 && cfg.qualityEnabled && !recov && w >= cfg.qualityFrom;
+        return runSession(day, idx, isLong, isQual && cfg.maxIntensity !== 'easy',
+          w >= Math.round(total*0.55), weekRunKm, runCount, w, total, taper, recov, cfg);
       }
       if (sport === 'fietsen') {
         const isLong = idx === bikeCount - 1;
-        const isQual = !recov && !taper && idx === 1 && bikeCount >= 3 && w >= 3;
+        const isQual = cfg.qualityEnabled && !recov && !taper && idx === 1 && bikeCount >= 3 && w >= cfg.qualityFrom;
         const isLate = w >= Math.round(total * 0.55);
-        const km = isLong ? clamp(Math.round(weekBikeKm * 0.45), 15, 120)
-                 : isQual ? clamp(Math.round(weekBikeKm * 0.25), 15, 60)
-                 :          clamp(Math.round(weekBikeKm * 0.28), 10, 50);
-        const type = isLong ? 'long' : isQual ? (isLate ? 'interval' : 'tempo') : 'easy';
-        const name = isLong ? 'Lange rit' : isQual ? (isLate ? 'Intervalrit' : 'Tempotraining') : 'Herstelrit';
-        const desc = type==='easy' ? `Rustig Zone 2 rit. Hoog trapritme (85–95 rpm).${injKnie?' Lichte versnelling, minder kniebelasting.':''}`
+        const km = isLong ? clamp(Math.round(weekBikeKm*0.45),15,120) : isQual ? clamp(Math.round(weekBikeKm*0.25),15,60) : clamp(Math.round(weekBikeKm*0.28),10,50);
+        const useInterval = isLate && cfg.maxIntensity === 'interval';
+        const type = isLong ? 'long' : isQual && cfg.maxIntensity!=='easy' ? (useInterval ? 'interval' : 'tempo') : 'easy';
+        const name = isLong ? 'Lange rit' : type==='interval' ? 'Intervalrit' : type==='tempo' ? 'Tempotraining' : 'Herstelrit';
+        const desc = type==='easy' ? 'Rustig Zone 2 rit. Hoog trapritme (85–95 rpm).'
                    : type==='tempo' ? `Warm op 15 min. ${clamp(Math.round(km*4),15,45)} min Zone 3–4 tempo. Koel af.`
                    : type==='interval' ? 'Warm op 15 min. 5–8× 2 min hoog vermogen + 2 min herstel. Koel af.'
                    : 'Rustige lange rit. Neem voeding mee vanaf 90 min.';
@@ -1622,37 +1648,36 @@ function genCombo(p) {
       }
       if (sport === 'zwemmen') {
         const isLong = idx === swimCount - 1;
-        const isQual = !recov && !taper && idx === 1 && swimCount >= 2 && w >= (injSch ? 5 : 3);
-        return swimSession(day, idx, isLong, isQual, w >= Math.round(total*0.55),
-          weekSwimM, swimCount, w, total, taper, recov, isPerf, injSch, injNek);
+        const isQual = cfg.qualityEnabled && !recov && !taper && idx === 1 && swimCount >= 2 && w >= cfg.qualityFrom;
+        return swimSession(day, idx, isLong, isQual && cfg.maxIntensity!=='easy',
+          w >= Math.round(total*0.55), weekSwimM, swimCount, w, total, taper, recov, cfg);
       }
       if (sport === 'wandelen') {
         const isLong = idx === 0;
         const min = recov ? 20 : isLong ? 45 : 30;
-        return { day, name: isLong ? 'Lange wandeling' : 'Actieve wandeling', type: isLong ? 'long' : 'easy',
-          volume: min + ' min', desc: 'Stevig wandeltempo — Zone 2.', tags: [isLong ? 'long' : 'easy'] };
+        return { day, name: isLong?'Lange wandeling':'Actieve wandeling', type:isLong?'long':'easy',
+          volume: min+' min', desc:'Stevig wandeltempo — Zone 2.', tags:[isLong?'long':'easy'] };
       }
       // kracht
-      const sets = recov ? Math.max(2, strSets - 1) : strSets;
+      const sets = recov ? Math.max(2, strSets-1) : strSets;
       const pct  = w / total;
-      const phase = pct < 0.3 ? 'adaptation' : pct < 0.65 ? 'hypertrophy' : 'strength';
-      const reps  = phase === 'adaptation' ? '12–15' : phase === 'hypertrophy' ? '8–12' : '5–8';
+      const phase = pct<0.3 ? 'adaptation' : pct<0.65 ? 'hypertrophy' : 'strength';
+      const reps  = phase==='adaptation' ? '12–15' : phase==='hypertrophy' ? '8–12' : '5–8';
       const isHome = p.activities.includes('thuis') && p.gym !== 'ja';
-      return strSession(day, idx, strCount, sets, reps, phase, isHome, p.gym==='ja', injRug, injSch, recov, w);
+      return strSession(day, idx, strCount, sets, reps, phase, isHome, p.gym==='ja', cfg.injRug, cfg.injSch, recov, w);
     });
 
     const vols = [];
-    if (hasRun  && weekRunKm)  vols.push(weekRunKm + ' km HL');
-    if (hasBike && weekBikeKm) vols.push(weekBikeKm + ' km FT');
-    if (hasSwim && weekSwimM)  vols.push(Math.round(weekSwimM/100)*100 + ' m ZW');
+    if (cfg.hasRun  && weekRunKm)  vols.push(weekRunKm + ' km HL');
+    if (cfg.hasBike && weekBikeKm) vols.push(weekBikeKm + ' km FT');
+    if (cfg.hasSwim && weekSwimM)  vols.push(Math.round(weekSwimM/100)*100 + ' m ZW');
 
     weeks.push({
       weekNum: w,
       weekType: taper ? 'taper' : recov ? 'recovery' : 'normal',
       title: recov ? 'Herstelweek' : taper ? 'Afbouwweek'
-           : w <= Math.round(total*0.35) ? 'Basisfase'
-           : w <= Math.round(total*0.65) ? 'Opbouwfase' : 'Piekfase',
-      weekVolume: vols.join(' + ') || (hasStr ? strSets + '× kracht' : '—'),
+           : w<=Math.round(total*0.35) ? 'Basisfase' : w<=Math.round(total*0.65) ? 'Opbouwfase' : 'Piekfase',
+      weekVolume: vols.join(' + ') || (cfg.hasStr ? strSets+'× kracht' : '—'),
       sessions
     });
 
