@@ -548,9 +548,9 @@ input[type=range] {
 
     <!-- TUNING: opbouwcurve -->
     <div class="tuning-card">
-      <div class="tuning-label">Opbouwcurve <span id="curve-label">Gemiddeld</span></div>
-      <input type="range" min="1" max="5" value="3" id="curve-slider" oninput="updateCurve(this.value)">
-      <div class="range-labels"><span>Rustig opbouwen</span><span>Snel opbouwen</span></div>
+      <div class="tuning-label">Opbouwcurve — <span id="curve-label">Gebalanceerd</span></div>
+      <input type="range" min="1" max="11" value="6" id="curve-slider" oninput="updateCurve(this.value)">
+      <div class="range-labels"><span>Extreme herstel</span><span>Maximaal</span></div>
     </div>
 
     <!-- TUNING: schemaduur -->
@@ -623,7 +623,7 @@ const profile = {
   doel: '', doeldatum: '',
   herstel_van: '', herstel_duur: null,
   injury: [],
-  tuning: { curve: 3, duur: 12, sessies: 3, focus: 3, perfHerstel: 3 }
+  tuning: { curve: 6, duur: 12, sessies: 3, focus: 3, perfHerstel: 3 }
 };
 
 // load from localStorage — or auto-regen if redirected from mijn-schema
@@ -873,7 +873,7 @@ function preselectTuning(rowId, key, val) {
   profile[key] = val;
 }
 
-const curveLabels = ['', 'Rustig opbouwen', 'Geleidelijk', 'Gemiddeld', 'Progressief', 'Snel opbouwen'];
+const curveLabels = ['', 'Extreme herstel', 'Heel rustig', 'Rustig', 'Voorzichtig', 'Licht', 'Gebalanceerd', 'Actief', 'Progressief', 'Intensief', 'Heel intensief', 'Maximaal'];
 const focusLabels = ['', 'Puur cardio', 'Cardio-gericht', 'Gebalanceerd', 'Kracht-gericht', 'Puur kracht'];
 
 function updateCurve(v) {
@@ -1095,7 +1095,8 @@ const WALK_DAYS_MAP = {
 };
 
 function isRecoveryWeek(w, curve) {
-  const interval = curve <= 2 ? 4 : 3;
+  // 1=herstelweek elke 2 weken … 11=herstelweek elke 7 weken
+  const interval = [2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7][curve - 1] || 4;
   return w > 1 && w % interval === 0;
 }
 function isTaperWeek(w, total, hasTaper) {
@@ -1140,7 +1141,7 @@ function genRunning(p, cfg) {
   const curve   = p.tuning.curve;
   const { vol: injVol, maxRate } = injuryRunFactor(p);
 
-  let increaseRate = [null, 0.05, 0.07, 0.10, 0.12, 0.15][curve];
+  let increaseRate = [null, 0.02, 0.03, 0.04, 0.05, 0.07, 0.10, 0.12, 0.14, 0.16, 0.19, 0.23][curve];
   if (maxRate !== null) increaseRate = Math.min(increaseRate, maxRate);
 
   // cfg stuurt kwaliteitssessies en volume
@@ -1249,7 +1250,7 @@ function genSwimming(p, cfg) {
   const sess    = clamp(p.tuning.sessies, 1, 5);
   const curve   = p.tuning.curve;
   const { vol: injVol } = injurySwimFactor(p);
-  const increaseRate = [null, 0.05, 0.07, 0.09, 0.11, 0.14][curve];
+  const increaseRate = [null, 0.02, 0.03, 0.04, 0.05, 0.06, 0.09, 0.11, 0.13, 0.15, 0.18, 0.22][curve];
   const days = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
 
   const distBase = {500:800, 1000:1500, 1500:2500, 3800:5000}[p.zw_afstand] || 1500;
@@ -1343,7 +1344,7 @@ function genCycling(p, cfg) {
   const sess    = clamp(p.tuning.sessies, 1, 5);
   const curve   = p.tuning.curve;
   const { vol: injVol } = injuryBikeFactor(p);
-  const increaseRate = [null, 0.05, 0.07, 0.10, 0.12, 0.15][curve];
+  const increaseRate = [null, 0.02, 0.03, 0.04, 0.05, 0.07, 0.10, 0.12, 0.14, 0.16, 0.19, 0.23][curve];
   const days    = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
 
   const distBase = {20:30, 40:50, 60:70, 80:90, 100:110}[p.ft_afstand] || 50;
@@ -1397,7 +1398,7 @@ function genStrength(p, cfg) {
   const curve   = p.tuning.curve;
   const isHome  = p.activities.includes('thuis') && !p.activities.includes('kracht') && p.gym !== 'ja';
   const hasGym  = p.gym === 'ja' || p.gym === 'soms' || p.activities.includes('kracht');
-  const increaseRate = [null, 0.03, 0.04, 0.05, 0.07, 0.09][curve];
+  const increaseRate = [null, 0.01, 0.02, 0.02, 0.03, 0.04, 0.05, 0.07, 0.08, 0.10, 0.12, 0.15][curve];
   const days    = STR_DAYS_MAP[sess] || STR_DAYS_MAP[3];
 
   // Sterker-doel → volledige krachtfasen; fitter-doel → stopt bij hypertrofie
@@ -1519,7 +1520,7 @@ function genWalking(p, cfg) {
   const sess  = clamp(p.tuning.sessies, 1, 5);
   const curve = p.tuning.curve;
   const days  = WALK_DAYS_MAP[sess] || WALK_DAYS_MAP[3];
-  const increaseRate = [null, 0.04, 0.06, 0.08, 0.10, 0.13][curve];
+  const increaseRate = [null, 0.02, 0.03, 0.04, 0.05, 0.06, 0.08, 0.10, 0.12, 0.14, 0.17, 0.21][curve];
 
   let startMin = Math.round(({nauwelijks:20, soms:30, regelmatig:40, actief:50}[p.actief] || 30) * cfg.volumeFactor);
   let curMin   = startMin;
@@ -1558,7 +1559,7 @@ function genCombo(p, cfg) {
   const { vol: swimInjVol } = injurySwimFactor(p);
   const { vol: bikeInjVol } = injuryBikeFactor(p);
 
-  let increaseRate = [null, 0.05, 0.07, 0.09, 0.11, 0.14][curve];
+  let increaseRate = [null, 0.02, 0.03, 0.04, 0.05, 0.06, 0.09, 0.11, 0.13, 0.15, 0.18, 0.22][curve];
   if (maxRate !== null) increaseRate = Math.min(increaseRate, maxRate);
 
   // Verdeel sessies per sport
