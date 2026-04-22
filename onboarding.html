@@ -188,6 +188,18 @@ input[type=range] {
 
 /* privacy note */
 .privacy-note { text-align: center; font-size: 10px; color: var(--muted); opacity: .5; margin-top: 16px; line-height: 1.6; }
+
+/* timing tabs */
+.timing-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.timing-tab {
+  flex: 1; padding: 8px 4px; text-align: center; border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer; font-size: 10px; font-family: var(--mono);
+  letter-spacing: .05em; color: var(--muted); transition: all .2s;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.timing-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(74,222,128,.08); }
+.timing-calc { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.8; }
+.timing-calc strong { color: var(--accent2); }
 </style>
 </head>
 <body>
@@ -413,23 +425,61 @@ input[type=range] {
       </div>
     </div>
 
-    <!-- CONDITIONEEL: presteren → huidig niveau + doel -->
+    <!-- CONDITIONEEL: niveau per sport (altijd zichtbaar als sport geselecteerd) -->
+    <div class="cond-block" id="cond-hl-niveau">
+      <hr class="section-divider">
+      <div class="section-heading">Jouw hardloopniveau</div>
+      <div class="form-block">
+        <label class="form-label">Langste afstand die je ooit gelopen hebt</label>
+        <div class="dist-row" id="hl-afstand-row">
+          <div class="dist-btn" data-val="0" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">Nooit / 0 km</div>
+          <div class="dist-btn" data-val="2" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">~2 km</div>
+          <div class="dist-btn" data-val="5" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">5 km</div>
+          <div class="dist-btn" data-val="10" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">10 km</div>
+          <div class="dist-btn" data-val="15" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">15 km</div>
+          <div class="dist-btn" data-val="21" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">21 km</div>
+          <div class="dist-btn" data-val="42" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">42 km</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cond-block" id="cond-ft-niveau">
+      <hr class="section-divider">
+      <div class="section-heading">Jouw fietsniveau</div>
+      <div class="form-block">
+        <label class="form-label">Langste rit die je ooit gefietst hebt</label>
+        <div class="dist-row" id="ft-afstand-row">
+          <div class="dist-btn" data-val="0" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">Nooit / 0 km</div>
+          <div class="dist-btn" data-val="20" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">~20 km</div>
+          <div class="dist-btn" data-val="40" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">40 km</div>
+          <div class="dist-btn" data-val="60" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">60 km</div>
+          <div class="dist-btn" data-val="80" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">80 km</div>
+          <div class="dist-btn" data-val="100" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">100+ km</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cond-block" id="cond-zw-niveau">
+      <hr class="section-divider">
+      <div class="section-heading">Jouw zwemniveau</div>
+      <div class="form-block">
+        <label class="form-label">Langste afstand die je ooit gezwommen hebt</label>
+        <div class="dist-row" id="zw-afstand-row">
+          <div class="dist-btn" data-val="0" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">Nooit / 0 m</div>
+          <div class="dist-btn" data-val="500" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">~500 m</div>
+          <div class="dist-btn" data-val="1000" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">1000 m</div>
+          <div class="dist-btn" data-val="1500" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">1500 m</div>
+          <div class="dist-btn" data-val="3000" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">3000+ m</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONDITIONEEL: presteren → tempo + specifiek doel -->
     <div class="cond-block" id="cond-presteren">
       <hr class="section-divider">
-      <div class="section-heading">Jouw huidige prestaties</div>
+      <div class="section-heading">Prestatiedoel</div>
 
       <div class="cond-block" id="cond-hardlopen-perf">
-        <div class="form-block">
-          <label class="form-label">Hardlopen — langste afstand recent</label>
-          <div class="dist-row" id="hl-afstand-row">
-            <div class="dist-btn" data-val="2" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">2 km</div>
-            <div class="dist-btn" data-val="5" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">5 km</div>
-            <div class="dist-btn" data-val="10" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">10 km</div>
-            <div class="dist-btn" data-val="15" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">15 km</div>
-            <div class="dist-btn" data-val="21" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">21 km</div>
-            <div class="dist-btn" data-val="42" onclick="selectSingle(this,'hl-afstand-row','hl_afstand')">42 km</div>
-          </div>
-        </div>
         <div class="form-block">
           <label class="form-label">Huidig gemiddeld tempo</label>
           <div class="dist-row" id="hl-tempo-row">
@@ -443,33 +493,6 @@ input[type=range] {
         </div>
       </div>
 
-      <div class="cond-block" id="cond-fietsen-perf">
-        <div class="form-block">
-          <label class="form-label">Fietsen — gemiddelde afstand per rit</label>
-          <div class="dist-row" id="ft-afstand-row">
-            <div class="dist-btn" data-val="20" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">< 20 km</div>
-            <div class="dist-btn" data-val="40" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">20–40 km</div>
-            <div class="dist-btn" data-val="60" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">40–60 km</div>
-            <div class="dist-btn" data-val="80" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">60–80 km</div>
-            <div class="dist-btn" data-val="100" onclick="selectSingle(this,'ft-afstand-row','ft_afstand')">80+ km</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="cond-block" id="cond-zwemmen-perf">
-        <div class="form-block">
-          <label class="form-label">Zwemmen — afstand per sessie</label>
-          <div class="dist-row" id="zw-afstand-row">
-            <div class="dist-btn" data-val="500" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">< 500 m</div>
-            <div class="dist-btn" data-val="1000" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">500–1000 m</div>
-            <div class="dist-btn" data-val="1500" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">1–2 km</div>
-            <div class="dist-btn" data-val="3000" onclick="selectSingle(this,'zw-afstand-row','zw_afstand')">2+ km</div>
-          </div>
-        </div>
-      </div>
-
-      <hr class="section-divider" style="margin-top:4px">
-      <div class="section-heading">Specifiek doel</div>
       <div class="form-block">
         <label class="form-label">Wat wil je bereiken? <span class="optional">optioneel</span></label>
         <input class="form-input" type="text" id="inp-doel" placeholder="bijv. 10 km onder 55 min" oninput="checkStep3()">
@@ -553,16 +576,41 @@ input[type=range] {
       <div class="range-labels"><span>Extreme herstel</span><span>Maximaal</span></div>
     </div>
 
-    <!-- TUNING: schemaduur -->
+    <!-- TUNING: schema timing -->
     <div class="tuning-card">
-      <div class="tuning-label">Schemaduur <span id="duur-label">12 weken</span></div>
-      <div class="num-row" id="duur-tuning-row">
-        <div class="num-btn" data-val="4" onclick="selectSingle(this,'duur-tuning-row','tuning_duur');updateDuurLabel(4)">4 wk</div>
-        <div class="num-btn" data-val="8" onclick="selectSingle(this,'duur-tuning-row','tuning_duur');updateDuurLabel(8)">8 wk</div>
-        <div class="num-btn selected" data-val="12" onclick="selectSingle(this,'duur-tuning-row','tuning_duur');updateDuurLabel(12)">12 wk</div>
-        <div class="num-btn" data-val="16" onclick="selectSingle(this,'duur-tuning-row','tuning_duur');updateDuurLabel(16)">16 wk</div>
-        <div class="num-btn" data-val="20" onclick="selectSingle(this,'duur-tuning-row','tuning_duur');updateDuurLabel(20)">20 wk</div>
+      <div class="tuning-label">Schema timing <span id="timing-label">12 weken · start morgen</span></div>
+
+      <div class="timing-tabs">
+        <div class="timing-tab active" id="ttab-duur" onclick="selectTimingType('duur')">Duur</div>
+        <div class="timing-tab" id="ttab-startdatum" onclick="selectTimingType('startdatum')">Startdatum</div>
+        <div class="timing-tab" id="ttab-einddatum" onclick="selectTimingType('einddatum')">Einddatum</div>
       </div>
+
+      <!-- Startdatum picker (hidden by default) -->
+      <div id="timing-start-panel" style="display:none;margin-bottom:10px">
+        <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Startdatum</div>
+        <input class="form-input" type="date" id="inp-startdatum" onchange="updateTimingCalc()">
+      </div>
+
+      <!-- Einddatum picker (hidden by default) -->
+      <div id="timing-end-panel" style="display:none;margin-bottom:10px">
+        <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Einddatum</div>
+        <input class="form-input" type="date" id="inp-einddatum" onchange="updateTimingCalc()">
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;opacity:.7">Schema start morgen. Duur wordt automatisch berekend.</div>
+      </div>
+
+      <!-- Duration buttons (hidden in einddatum mode) -->
+      <div id="timing-duur-panel">
+        <div class="num-row" id="duur-tuning-row" style="margin-bottom:6px">
+          <div class="num-btn" data-val="4" onclick="selectDuurInTiming(this,4)">4 wk</div>
+          <div class="num-btn" data-val="8" onclick="selectDuurInTiming(this,8)">8 wk</div>
+          <div class="num-btn selected" data-val="12" onclick="selectDuurInTiming(this,12)">12 wk</div>
+          <div class="num-btn" data-val="16" onclick="selectDuurInTiming(this,16)">16 wk</div>
+          <div class="num-btn" data-val="20" onclick="selectDuurInTiming(this,20)">20 wk</div>
+        </div>
+      </div>
+
+      <div class="timing-calc" id="timing-calc"></div>
     </div>
 
     <!-- TUNING: trainingen per week (enkelvoudig) -->
@@ -623,6 +671,7 @@ const profile = {
   doel: '', doeldatum: '',
   herstel_van: '', herstel_duur: null,
   injury: [],
+  timing_type: 'duur', startdatum: '', einddatum: '',
   tuning: { curve: 6, duur: 12, sessies: 3, focus: 3, perfHerstel: 3 }
 };
 
@@ -755,6 +804,9 @@ function updateCondBlocks() {
   const hasZW     = profile.activities.includes('zwemmen');
 
   toggle('cond-materiaal', hasMat);
+  toggle('cond-hl-niveau', hasHL);
+  toggle('cond-ft-niveau', hasFT);
+  toggle('cond-zw-niveau', hasZW);
   toggle('cond-presteren', hasPerf);
   toggle('cond-herstellen', hasRecover);
   toggle('cond-hardlopen-perf', hasPerf && hasHL);
@@ -788,12 +840,23 @@ function buildStep4() {
     document.getElementById('sessies-label').textContent = profile.tuning.sessies + '×';
   }
 
-  preselectTuning('duur-tuning-row', 'tuning_duur', String(profile.tuning.duur));
   document.getElementById('curve-slider').value = profile.tuning.curve;
   document.getElementById('focus-slider').value = profile.tuning.focus;
-  document.getElementById('duur-label').textContent = profile.tuning.duur + ' weken';
   updateCurve(profile.tuning.curve);
   updateFocus(profile.tuning.focus);
+
+  // timing init
+  selectTimingType(profile.timing_type || 'duur');
+  preselectDuurButtons(profile.tuning.duur);
+  if (profile.startdatum && profile.timing_type === 'startdatum') {
+    const sp = document.getElementById('inp-startdatum');
+    if (sp) sp.value = profile.startdatum;
+  }
+  if (profile.einddatum && profile.timing_type === 'einddatum') {
+    const ep = document.getElementById('inp-einddatum');
+    if (ep) ep.value = profile.einddatum;
+  }
+  updateTimingCalc();
 
   // focus card only when mix of cardio + kracht
   const showFocus = (profile.activities.includes('kracht') || profile.activities.includes('thuis')) &&
@@ -873,6 +936,101 @@ function preselectTuning(rowId, key, val) {
   profile[key] = val;
 }
 
+// ── TIMING HELPERS ──────────────────────────────────
+function tomorrowStr() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function formatDateNL(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr + 'T12:00:00');
+  return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function selectTimingType(type) {
+  profile.timing_type = type;
+  ['duur','startdatum','einddatum'].forEach(t => {
+    const el = document.getElementById('ttab-' + t);
+    if (el) el.classList.toggle('active', t === type);
+  });
+  const sp = document.getElementById('timing-start-panel');
+  const ep = document.getElementById('timing-end-panel');
+  const dp = document.getElementById('timing-duur-panel');
+  if (sp) sp.style.display = type === 'startdatum' ? 'block' : 'none';
+  if (ep) ep.style.display = type === 'einddatum'  ? 'block' : 'none';
+  if (dp) dp.style.display = type === 'einddatum'  ? 'none'  : 'block';
+  updateTimingCalc();
+  save();
+}
+
+function selectDuurInTiming(el, weeks) {
+  document.querySelectorAll('#duur-tuning-row .num-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+  profile.tuning.duur = weeks;
+  updateTimingCalc();
+  save();
+}
+
+function preselectDuurButtons(weeks) {
+  document.querySelectorAll('#duur-tuning-row .num-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.val) === weeks);
+  });
+}
+
+function updateTimingCalc() {
+  const type = profile.timing_type || 'duur';
+  const duur = profile.tuning.duur || 12;
+  const tomorrow = tomorrowStr();
+  let startDate = tomorrow, endDate = '', weeksCalc = duur;
+
+  if (type === 'duur') {
+    const end = new Date(tomorrow + 'T12:00:00');
+    end.setDate(end.getDate() + duur * 7);
+    endDate = end.toISOString().slice(0, 10);
+    profile.startdatum = tomorrow;
+  } else if (type === 'startdatum') {
+    const inp = document.getElementById('inp-startdatum');
+    startDate = (inp && inp.value) ? inp.value : tomorrow;
+    const end = new Date(startDate + 'T12:00:00');
+    end.setDate(end.getDate() + duur * 7);
+    endDate = end.toISOString().slice(0, 10);
+    profile.startdatum = startDate;
+  } else if (type === 'einddatum') {
+    const inp = document.getElementById('inp-einddatum');
+    const endVal = inp ? inp.value : '';
+    if (endVal) {
+      const diffDays = Math.round((new Date(endVal + 'T12:00:00') - new Date(tomorrow + 'T12:00:00')) / (86400000));
+      weeksCalc = Math.max(2, Math.round(diffDays / 7));
+      profile.tuning.duur = weeksCalc;
+      endDate = endVal;
+    }
+    profile.startdatum = tomorrow;
+    profile.einddatum  = endVal;
+  }
+
+  const calcEl = document.getElementById('timing-calc');
+  if (calcEl) {
+    if (startDate && endDate) {
+      calcEl.innerHTML = `<strong>Start:</strong> ${formatDateNL(startDate)} &nbsp;·&nbsp; <strong>Einde:</strong> ${formatDateNL(endDate)} &nbsp;·&nbsp; <strong>${weeksCalc} weken</strong>`;
+    } else if (type === 'einddatum') {
+      calcEl.innerHTML = '<span style="opacity:.5">Kies een einddatum ↑</span>';
+    } else {
+      calcEl.innerHTML = '';
+    }
+  }
+
+  const lbl = document.getElementById('timing-label');
+  if (lbl) {
+    if (type === 'duur') lbl.textContent = duur + ' weken · start morgen';
+    else if (type === 'startdatum' && startDate !== tomorrow) lbl.textContent = duur + ' weken · start ' + formatDateNL(startDate);
+    else if (type === 'einddatum' && endDate) lbl.textContent = weeksCalc + ' weken · eindigt ' + formatDateNL(endDate);
+    else lbl.textContent = duur + ' weken · start morgen';
+  }
+  save();
+}
+
 const curveLabels = ['', 'Extreme herstel', 'Heel rustig', 'Rustig', 'Voorzichtig', 'Licht', 'Gebalanceerd', 'Actief', 'Progressief', 'Intensief', 'Heel intensief', 'Maximaal'];
 const focusLabels = ['', 'Puur cardio', 'Cardio-gericht', 'Gebalanceerd', 'Kracht-gericht', 'Puur kracht'];
 
@@ -938,6 +1096,35 @@ function buildProfileTags() {
   return tags;
 }
 
+// ── BODY FACTOR (leeftijd + BMI) ────────────────────
+function calcBodyFactor(p) {
+  const age = parseInt(p.leeftijd);
+  let ageFactor = 1.0;
+  if (age) {
+    if (age < 14)       ageFactor = 0.60;
+    else if (age < 16)  ageFactor = 0.72;
+    else if (age < 18)  ageFactor = 0.88;
+    else if (age <= 55) ageFactor = 1.0;
+    else if (age <= 65) ageFactor = 0.92;
+    else if (age <= 75) ageFactor = 0.80;
+    else                ageFactor = 0.65;
+  }
+
+  const h = parseFloat(p.lengte), w = parseFloat(p.gewicht);
+  let bmiFactor = 1.0;
+  if (h > 0 && w > 0) {
+    const bmi = w / ((h / 100) ** 2);
+    if (bmi < 16)        bmiFactor = 0.65;
+    else if (bmi < 18.5) bmiFactor = 0.82;
+    else if (bmi <= 25)  bmiFactor = 1.0;
+    else if (bmi <= 30)  bmiFactor = 0.90;
+    else if (bmi <= 35)  bmiFactor = 0.78;
+    else                 bmiFactor = 0.65;
+  }
+
+  return Math.max(0.40, ageFactor * bmiFactor);
+}
+
 // ═══════════════════════════════════════════════════
 //  SCHEMA CONFIG — bouwt één object uit doel-as + sport-as
 // ═══════════════════════════════════════════════════
@@ -1000,6 +1187,7 @@ function buildSchemaConfig(p) {
     hasRun, hasBike, hasSwim, hasStr, hasWalk,
     volumeFactor, hasTaper, hasRace,
     qualityEnabled, qualityFrom, maxIntensity,
+    bodyFactor: calcBodyFactor(p),
     injKnie:  p.injury.includes('knie') || p.injury.includes('shin'),
     injHeup:  p.injury.includes('heup'),
     injRug:   p.injury.includes('rug'),
@@ -1027,6 +1215,10 @@ function generateSchema() {
   else if (type === 'combo')    weeks = genCombo(profile, cfg);
   else                          weeks = genRunning(profile, cfg);
 
+  const startDateStr = (profile.timing_type === 'startdatum' && profile.startdatum)
+    ? profile.startdatum
+    : tomorrowStr();
+
   const schema = {
     title:     buildSchemaTitle(type, cfg),
     subtitle:  buildSchemaSubtitle(cfg),
@@ -1034,7 +1226,7 @@ function generateSchema() {
     profile:   JSON.parse(JSON.stringify(profile)),
     weeks,
     generated: new Date().toISOString(),
-    startDate: new Date().toISOString()
+    startDate: new Date(startDateStr + 'T12:00:00').toISOString()
   };
   localStorage.setItem('tmg_generated_schema', JSON.stringify(schema));
   window.location.href = 'mijn-schema.html';
@@ -1146,13 +1338,16 @@ function genRunning(p, cfg) {
 
   // curve verkleint/vergroot ook het startvolume en sessie-minimum
   const curveStartFactor = [null, 0.22, 0.38, 0.55, 0.72, 0.87, 1.0, 1.10, 1.20, 1.32, 1.44, 1.60][curve] || 1;
-  cfg.sessMinKm = Math.max(1, [null, 1, 1, 1, 1, 2, 3, 3, 4, 4, 5, 5][curve] || 3);
+  const isNewRunner = parseInt(p.hl_afstand) === 0;
+  cfg.sessMinKm = isNewRunner
+    ? Math.max(1, [null, 1, 1, 1, 1, 1, 2, 2, 3, 3, 4, 4][curve] || 2)
+    : Math.max(1, [null, 1, 1, 1, 1, 2, 3, 3, 4, 4, 5, 5][curve] || 3);
 
   // cfg stuurt kwaliteitssessies en volume
   const qualityFrom = cfg.injKnie || cfg.injEnkel ? Math.max(cfg.qualityFrom, 5) : cfg.qualityFrom;
   const days = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
 
-  let startKm = Math.max(cfg.sessMinKm, Math.round(runStartKm(p, injVol * cfg.volumeFactor) * curveStartFactor / 2) * 2);
+  let startKm = Math.max(cfg.sessMinKm, Math.round(runStartKm(p, injVol * cfg.volumeFactor * cfg.bodyFactor) * curveStartFactor / 2) * 2);
   let curKm   = startKm;
   let maxKm   = 0;
   const weeks = [];
@@ -1190,10 +1385,14 @@ function genRunning(p, cfg) {
 
 function runStartKm(p, injVol = 1.0) {
   const lvl  = {nauwelijks: 0.30, soms: 0.52, regelmatig: 0.78, actief: 1.0}[p.actief] || 0.52;
-  const dist = {2: 8, 5: 14, 10: 22, 15: 30, 21: 38, 42: 56}[p.hl_afstand] || 12;
+  const hlDist = parseInt(p.hl_afstand);
+  const isNever = hlDist === 0;
+  const distMap = {0: 3, 2: 8, 5: 14, 10: 22, 15: 30, 21: 38, 42: 56};
+  const dist = distMap[hlDist] !== undefined ? distMap[hlDist] : 12;
   const sf   = [null,0.75,0.85,1.0,1.10,1.20][clamp(p.tuning.sessies,1,5)];
-  const base = clamp(Math.round(dist * lvl * sf / 2) * 2, 6, 60);
-  return clamp(Math.round(base * injVol / 2) * 2, 4, 60);
+  const floorBase = isNever ? 1 : 4;
+  const base = clamp(Math.round(dist * lvl * sf / 2) * 2, floorBase, 60);
+  return clamp(Math.round(base * injVol / 2) * 2, floorBase, 60);
 }
 
 function runSession(day, idx, isLong, isQual, isLate, weekKm, sess, w, total, taper, recov, cfg) {
@@ -1211,7 +1410,7 @@ function runSession(day, idx, isLong, isQual, isLate, weekKm, sess, w, total, ta
     return { day, name: 'Herstelloop', type: 'easy', volume: km + ' km', desc, tags: ['easy'] };
   }
   if (isLong) {
-    const km = clamp(Math.round(weekKm * (injKnie || injEnkel ? 0.35 : 0.42)), 4, 35);
+    const km = clamp(Math.round(weekKm * (injKnie || injEnkel ? 0.35 : 0.42)), cfg.sessMinKm || 2, 35);
     let desc = `Rustig aaneengesloten tempo — je moet makkelijk kunnen praten. `;
     if (km >= 10) desc += `Neem gels of water mee vanaf 75 min. `;
     if (injKnie)  desc += `Let op je kniepositie — vermijd heuvelwerk. Activeer glutes voor de run. `;
@@ -1243,6 +1442,8 @@ function runWeekTitle(w, total, recov, taper, cfg) {
   if (taper) return w === total && cfg.hasRace ? 'Race week' : 'Afbouwweek';
   if (recov) return 'Herstelweek';
   if (cfg.wantsHerstel && cfg.perfBalance <= 2) return w <= Math.round(total*0.5) ? 'Activatie' : 'Voorzichtig opbouwen';
+  if (cfg.wantsBewegen && !cfg.wantsPerf) return w <= Math.round(total*0.4) ? 'Routines opbouwen' : w <= Math.round(total*0.7) ? 'Actief bewegen' : 'Volhouden & genieten';
+  if (cfg.wantsFitter && !cfg.wantsPerf) return w <= Math.round(total*0.35) ? 'Conditie opbouwen' : w <= Math.round(total*0.65) ? 'Fitter worden' : 'Piekconditie';
   return w <= Math.round(total * 0.35) ? 'Basis opbouwen'
        : w <= Math.round(total * 0.65) ? 'Kracht opbouwen'
        : 'Piekfase';
@@ -1257,9 +1458,11 @@ function genSwimming(p, cfg) {
   const increaseRate = [null, 0.02, 0.03, 0.04, 0.05, 0.06, 0.09, 0.11, 0.13, 0.15, 0.18, 0.22][curve];
   const days = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
 
-  const distBase = {500:800, 1000:1500, 1500:2500, 3800:5000}[p.zw_afstand] || 1500;
+  const zwDist = parseInt(p.zw_afstand);
+  const distBase = {0:300, 500:800, 1000:1500, 1500:2500, 3000:4000, 3800:5000}[zwDist] || 1500;
   const lvl = {nauwelijks:0.35, soms:0.55, regelmatig:0.80, actief:1.0}[p.actief] || 0.55;
-  let curM = clamp(Math.round(distBase * lvl * injVol * cfg.volumeFactor / 100) * 100, 400, 8000);
+  const swimFloor = zwDist === 0 ? 200 : 400;
+  let curM = clamp(Math.round(distBase * lvl * injVol * cfg.volumeFactor * cfg.bodyFactor / 100) * 100, swimFloor, 8000);
   let maxM = 0;
   const weeks = [];
 
@@ -1337,6 +1540,7 @@ function swimSession(day, idx, isLong, isQual, isLate, weekM, sess, w, total, ta
 function swimWeekTitle(w, total, recov, taper, cfg) {
   if (taper) return w === total && cfg.hasRace ? 'Race week' : 'Afbouwweek';
   if (recov) return 'Herstelweek';
+  if (cfg.wantsBewegen && !cfg.wantsPerf) return w <= Math.round(total*0.4) ? 'Techniek leren' : w <= Math.round(total*0.7) ? 'Zwemroutine' : 'Verankeren';
   return w <= Math.round(total * 0.35) ? 'Techniek & basis'
        : w <= Math.round(total * 0.65) ? 'Volume opbouwen'
        : 'Piekfase';
@@ -1351,9 +1555,11 @@ function genCycling(p, cfg) {
   const increaseRate = [null, 0.02, 0.03, 0.04, 0.05, 0.07, 0.10, 0.12, 0.14, 0.16, 0.19, 0.23][curve];
   const days    = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
 
-  const distBase = {20:30, 40:50, 60:70, 80:90, 100:110}[p.ft_afstand] || 50;
+  const ftDist = parseInt(p.ft_afstand);
+  const distBase = {0:12, 20:30, 40:50, 60:70, 80:90, 100:110}[ftDist] || 50;
   const lvl      = {nauwelijks:0.35, soms:0.55, regelmatig:0.80, actief:1.0}[p.actief] || 0.55;
-  let curKm      = clamp(Math.round(distBase * lvl * sess * injVol * cfg.volumeFactor * 0.8 / 10) * 10, 20, 200);
+  const bikeFloor = ftDist === 0 ? 8 : 20;
+  let curKm      = clamp(Math.round(distBase * lvl * sess * injVol * cfg.volumeFactor * cfg.bodyFactor * 0.8 / 10) * 10, bikeFloor, 200);
   let maxKm = 0;
   const weeks = [];
 
@@ -1408,7 +1614,7 @@ function genStrength(p, cfg) {
   // Sterker-doel → volledige krachtfasen; fitter-doel → stopt bij hypertrofie
   const maxPhase = cfg.wantsSterker ? 'strength' : 'hypertrophy';
   const startSets = {nauwelijks: 2, soms: 3, regelmatig: 3, actief: 4}[p.actief] || 3;
-  let curSets = Math.round(startSets * cfg.volumeFactor);
+  let curSets = Math.max(1, Math.round(startSets * cfg.volumeFactor * cfg.bodyFactor));
   const weeks = [];
 
   for (let w = 1; w <= total; w++) {
@@ -1526,7 +1732,7 @@ function genWalking(p, cfg) {
   const days  = WALK_DAYS_MAP[sess] || WALK_DAYS_MAP[3];
   const increaseRate = [null, 0.02, 0.03, 0.04, 0.05, 0.06, 0.08, 0.10, 0.12, 0.14, 0.17, 0.21][curve];
 
-  let startMin = Math.round(({nauwelijks:20, soms:30, regelmatig:40, actief:50}[p.actief] || 30) * cfg.volumeFactor);
+  let startMin = Math.round(({nauwelijks:20, soms:30, regelmatig:40, actief:50}[p.actief] || 30) * cfg.volumeFactor * cfg.bodyFactor);
   let curMin   = startMin;
   const weeks  = [];
 
@@ -1599,16 +1805,18 @@ function genCombo(p, cfg) {
   }
   const schedule = merged.map((sport, i) => ({ day: allDays[i] || allDays[allDays.length-1], sport }));
 
-  // Startvolumes per sport (injury + cfg.volumeFactor)
-  let runKm  = runStartKm(p, runInjVol * cfg.volumeFactor);
-  const distBike = {20:30,40:50,60:70,80:90,100:110}[p.ft_afstand] || 50;
+  // Startvolumes per sport (injury + cfg.volumeFactor + bodyFactor)
+  let runKm  = runStartKm(p, runInjVol * cfg.volumeFactor * cfg.bodyFactor);
+  const ftDistC  = parseInt(p.ft_afstand);
+  const distBike = {0:12, 20:30, 40:50, 60:70, 80:90, 100:110}[ftDistC] || 50;
   const lvl      = {nauwelijks:0.35,soms:0.55,regelmatig:0.80,actief:1.0}[p.actief] || 0.55;
-  let bikeKm = clamp(Math.round(distBike * lvl * bikeInjVol * cfg.volumeFactor * 0.8 / 10) * 10, 20, 200);
-  const distSwim = {500:800,1000:1500,1500:2500,3800:5000}[p.zw_afstand] || 1500;
-  let swimM  = clamp(Math.round(distSwim * lvl * swimInjVol * cfg.volumeFactor / 100) * 100, 400, 8000);
+  let bikeKm = clamp(Math.round(distBike * lvl * bikeInjVol * cfg.volumeFactor * cfg.bodyFactor * 0.8 / 10) * 10, ftDistC === 0 ? 8 : 20, 200);
+  const zwDistC  = parseInt(p.zw_afstand);
+  const distSwim = {0:300, 500:800, 1000:1500, 1500:2500, 3000:4000, 3800:5000}[zwDistC] || 1500;
+  let swimM  = clamp(Math.round(distSwim * lvl * swimInjVol * cfg.volumeFactor * cfg.bodyFactor / 100) * 100, zwDistC === 0 ? 200 : 400, 8000);
 
   let maxRunKm = 0, maxBikeKm = 0, maxSwimM = 0;
-  let strSets  = Math.round(({nauwelijks:2,soms:3,regelmatig:3,actief:4}[p.actief]||3) * cfg.volumeFactor);
+  let strSets  = Math.max(1, Math.round(({nauwelijks:2,soms:3,regelmatig:3,actief:4}[p.actief]||3) * cfg.volumeFactor * cfg.bodyFactor));
 
   const runCount  = schedule.filter(s => s.sport === 'hardlopen').length;
   const bikeCount = schedule.filter(s => s.sport === 'fietsen').length;
