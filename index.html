@@ -110,6 +110,21 @@
   .debug-panel td { padding: 2px 8px 2px 0; vertical-align: top; }
   .debug-panel td:first-child { color: var(--accent2); white-space: nowrap; min-width: 110px; }
   .debug-panel .missing { color: #f87171; }
+
+  .dev-bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding-bottom: 14px; margin-bottom: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  #update-label { flex: 1; font-size: 11px; color: var(--muted); }
+  .wipe-btn {
+    background: none; border: 1px solid var(--border); border-radius: 8px;
+    color: var(--muted); font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.08em; padding: 5px 10px; cursor: pointer;
+    transition: border-color .2s, color .2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wipe-btn:hover { border-color: #f87171; color: #f87171; }
 </style>
 </head>
 <body>
@@ -163,6 +178,10 @@
   </button>
 
   <div class="debug-panel" id="debug-panel">
+    <div class="dev-bar">
+      <span id="update-label">Laatste sync: laden…</span>
+      <button class="wipe-btn" onclick="wipeData()">↺ Data wissen</button>
+    </div>
     <h3>Schema-generatie — principes</h3>
 
     <div class="db-section">
@@ -227,6 +246,27 @@
 function toggleDebug(btn) {
   btn.classList.toggle('open');
   document.getElementById('debug-panel').classList.toggle('open');
+  if (btn.classList.contains('open')) loadUpdateLabel();
+}
+
+function loadUpdateLabel() {
+  fetch('https://api.github.com/repos/Nielskingma/trainen-met-een-doel/commits?per_page=1')
+    .then(r => r.json())
+    .then(data => {
+      const d = new Date(data[0].commit.author.date);
+      const label = d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })
+        + ' ' + d.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+      document.getElementById('update-label').textContent = 'Laatste sync: ' + label;
+    })
+    .catch(() => { document.getElementById('update-label').textContent = 'Laatste sync: onbekend'; });
+}
+
+function wipeData() {
+  if (confirm('Alle opgeslagen trainingsdata wissen?\nDit kan niet ongedaan worden gemaakt.')) {
+    localStorage.clear();
+    document.getElementById('update-label').textContent = 'Data gewist ✓';
+    setTimeout(() => location.reload(), 800);
+  }
 }
 </script>
 </body>
