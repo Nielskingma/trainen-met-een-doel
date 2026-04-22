@@ -423,6 +423,14 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
       <input class="form-input" type="date" id="start-date">
     </div>
 
+    <div class="form-block">
+      <div class="form-label">Trainingsbelasting</div>
+      <div class="slider-value" id="balance-display">6</div>
+      <div class="slider-unit" id="balance-label">Gebalanceerd</div>
+      <div class="slider-wrap"><input type="range" id="balance-slider" min="1" max="11" step="1" value="6" oninput="onBalanceSlider(this.value)"></div>
+      <div class="slider-labels"><span>Herstel</span><span></span><span>Maximaal</span></div>
+    </div>
+
     <div class="info-box" id="plan-preview"></div>
 
     <button class="btn-cta" id="btn-generate" onclick="generate()">Schema genereren →</button>
@@ -483,6 +491,7 @@ const cfg = {
   injuries: '',
   daysPerWeek: 4,
   startDate: null,
+  buildBalance: 3,
 };
 
 const completedSessions = JSON.parse(localStorage.getItem('gen_completed') || '[]');
@@ -718,15 +727,30 @@ function selectDays(n, el) {
   updatePlanPreview();
 }
 
+const BALANCE_LABELS = [
+  'Extreme herstel', 'Heel voorzichtig', 'Voorzichtig', 'Rustig opbouwen',
+  'Licht', 'Gebalanceerd', 'Actief', 'Intensief',
+  'Zwaar', 'Heel intensief', 'Maximaal presteren'
+];
+
+function onBalanceSlider(val) {
+  cfg.buildBalance = parseInt(val);
+  document.getElementById('balance-display').textContent = val;
+  document.getElementById('balance-label').textContent = BALANCE_LABELS[val - 1];
+  updatePlanPreview();
+}
+
 function updatePlanPreview() {
   const startVal = document.getElementById('start-date').value;
   cfg.startDate = startVal || todayStr();
+  cfg.buildBalance = parseInt(document.getElementById('balance-slider')?.value) || 3;
   const weeks = cfg.targetDate ? weeksUntil(cfg.targetDate) : '?';
   const totalSessions = typeof weeks === 'number' ? weeks * cfg.daysPerWeek : '?';
   const sport = cfg.primarySport;
   const sportName = { running: 'hardloopsessies', cycling: 'fietstrainingen', swimming: 'zwemsessies', triathlon: 'trainingen' }[sport] || 'trainingen';
+  const balanceLabel = BALANCE_LABELS[cfg.buildBalance - 1] || 'Gebalanceerd';
   document.getElementById('plan-preview').innerHTML =
-    `<strong style="color:var(--accent)">${weeks} weken</strong> · <strong style="color:var(--accent)">${cfg.daysPerWeek}×</strong> per week · ~<strong style="color:var(--accent)">${totalSessions}</strong> ${sportName} totaal`;
+    `<strong style="color:var(--accent)">${weeks} weken</strong> · <strong style="color:var(--accent)">${cfg.daysPerWeek}×</strong> per week · ~<strong style="color:var(--accent)">${totalSessions}</strong> ${sportName} totaal<br><span style="color:var(--muted);font-size:11px">Belasting: ${balanceLabel}</span>`;
 }
 
 function todayStr() {
@@ -744,6 +768,7 @@ function generate() {
   cfg.currentDistance = parseFloat(document.getElementById('current-dist').value) || 5;
   cfg.injuries = document.getElementById('injuries').value;
   cfg.startDate = document.getElementById('start-date').value || todayStr();
+  cfg.buildBalance = parseInt(document.getElementById('balance-slider').value) || 3;
 
   if (cfg.hasTimeGoal) {
     const h = parseInt(document.getElementById('tg-hours').value) || 0;
@@ -791,7 +816,7 @@ function buildSchedule(config) {
   const ageFactor = getAgeFactor(config.age);
   const adjPeak = peakVol * ageFactor;
 
-  const weeklyVols = buildVolumeCurve(startVol, adjPeak, totalWeeks, taperWeeks);
+  const weeklyVols = buildVolumeCurve(startVol, adjPeak, totalWeeks, taperWeeks, config.buildBalance);
   const phases = buildPhases(totalWeeks, taperWeeks);
 
   const schedule = weeklyVols.map((vol, i) => {
@@ -809,8 +834,24 @@ function buildSchedule(config) {
 
 function calcStartVolume(config) {
   const { activityLevel, currentSport, primarySport, currentFrequency, currentDistance } = config;
+  const balance = config.buildBalance || 3;
+
+  // Balance factor: 1=extreem conservatief, 11=maximaal agressief
+  const balanceFactors = [0.10, 0.18, 0.28, 0.45, 0.65, 1.0, 1.20, 1.40, 1.60, 1.80, 2.10];
+  const bf = balanceFactors[balance - 1];
+
+  // Sport-specifieke absolute minimums per balance-niveau
+  const absMin = {
+    running:   [1,   1.5, 2,   3,   5,   8,   10,  12,  14,  16,  20 ][balance - 1],
+    cycling:   [4,   6,   8,   12,  18,  25,  32,  40,  50,  60,  80 ][balance - 1],
+    swimming:  [200, 300, 400, 600, 900, 1500,1800,2200,2600,3000,3800][balance - 1],
+    triathlon: [1.5, 2,   3,   4.5, 6,   10,  12,  14,  16,  18,  22 ][balance - 1],
+  };
+  const sportMin = absMin[primarySport]?.[balance - 1] ?? (absMin.running[balance - 1] || 1);
+
   if (activityLevel === 'beginner') {
-    return { running: 8, cycling: 30, swimming: 1500, triathlon: 10 }[primarySport] || 8;
+    const base = { running: 8, cycling: 30, swimming: 1500, triathlon: 10 }[primarySport] || 8;
+    return Math.max(base * bf, sportMin);
   }
   const rawVol = (currentFrequency || 1) * (currentDistance || 5);
   // cross-sport transfer
@@ -820,8 +861,8 @@ function calcStartVolume(config) {
          'running-swimming': 0.40, 'cycling-swimming': 0.30, 'swimming-cycling': 0.45 }
       [`${currentSport}-${primarySport}`] || 0.4);
   const levelMult = { active: 0.7, regular: 1.0, experienced: 1.2 }[activityLevel] || 0.7;
-  let vol = rawVol * transfer * levelMult;
-  return Math.max(vol, { running: 8, cycling: 25, swimming: 1500, triathlon: 10 }[primarySport] || 8);
+  let vol = rawVol * transfer * levelMult * bf;
+  return Math.max(vol, sportMin);
 }
 
 function calcPeakVolume(config) {
@@ -852,7 +893,14 @@ function getAgeFactor(age) {
   if (age <= 40) return 1.00; if (age <= 50) return 0.90; if (age <= 60) return 0.80; return 0.70;
 }
 
-function buildVolumeCurve(startVol, peakVol, totalWeeks, taperWeeks) {
+function buildVolumeCurve(startVol, peakVol, totalWeeks, taperWeeks, balance) {
+  const b = balance || 3;
+  // balance 1=conservatief: langzame opbouw, vroege herstelweken
+  // balance 5=agressief: snelle opbouw, weinig herstelweken
+  const growthRate     = [1.04, 1.05, 1.06, 1.07, 1.08, 1.10, 1.11, 1.12, 1.13, 1.14, 1.16][b - 1];
+  const recoveryEvery  = [2,    2,    3,    3,    3,    4,    4,    5,    5,    6,    6   ][b - 1];
+  const recoveryDrop   = [0.50, 0.55, 0.60, 0.63, 0.67, 0.72, 0.74, 0.76, 0.78, 0.80, 0.83][b - 1];
+
   const buildWeeks = totalWeeks - taperWeeks;
   const vols = [];
   let cur = startVol;
@@ -860,13 +908,13 @@ function buildVolumeCurve(startVol, peakVol, totalWeeks, taperWeeks) {
 
   for (let w = 1; w <= buildWeeks; w++) {
     buildWeekIdx++;
-    const isRecovery = buildWeekIdx % 4 === 0 && w < buildWeeks;
+    const isRecovery = buildWeekIdx % recoveryEvery === 0 && w < buildWeeks;
     if (isRecovery) {
-      vols.push(cur * 0.72);
+      vols.push(cur * recoveryDrop);
       buildWeekIdx = 0;
     } else {
       vols.push(cur);
-      if (cur < peakVol) cur = Math.min(cur * 1.10, peakVol);
+      if (cur < peakVol) cur = Math.min(cur * growthRate, peakVol);
     }
   }
 
@@ -915,6 +963,7 @@ const DAY_NAMES = {
 
 function makeSessions({ vol, week, totalWeeks, config, phase, isRecovery, isRaceWeek }) {
   const { primarySport, daysPerWeek, goalDistance, goalUnit, timeGoalSeconds } = config;
+  const balance = config.buildBalance || 3;
   const days = DAY_NAMES[daysPerWeek] || DAY_NAMES[4];
   const isPreRace = week === totalWeeks - 1;
   const unit = primarySport === 'swimming' ? 'm' : 'km';
@@ -927,8 +976,14 @@ function makeSessions({ vol, week, totalWeeks, config, phase, isRecovery, isRace
     ];
   }
 
+  // balance 1: geen quality-sessies, alles rustig
+  // balance 5: maximale quality-ratio
+  const qualMultipliers = [0.0, 0.0, 0.15, 0.30, 0.60, 1.0, 1.15, 1.30, 1.50, 1.70, 2.0];
+  const qm = qualMultipliers[balance - 1];
+
   const longPct  = isRecovery ? 0.30 : 0.33;
-  const qualPct  = isRecovery ? 0.00 : (phase === 'Basis opbouwen' || phase === 'Techniek & basis' ? 0.14 : 0.22);
+  const baseQual = phase === 'Basis opbouwen' || phase === 'Techniek & basis' ? 0.14 : 0.22;
+  const qualPct  = isRecovery ? 0.00 : Math.min(baseQual * qm, 0.35);
   const easyPct  = 1 - longPct - qualPct;
 
   const longVol  = round1(vol * longPct);
@@ -1172,7 +1227,8 @@ function renderUitleg(data) {
     <div class="info-box">
       <strong>Startvolume:</strong> ~${Math.round(startVol)} ${unit}/week<br>
       <strong>Piekvolume:</strong> ~${Math.round(peakVol)} ${unit}/week<br>
-      <strong>Taperingweken:</strong> ${taperWeeks}<br><br>
+      <strong>Taperingweken:</strong> ${taperWeeks}<br>
+      <strong>Trainingsbelasting:</strong> ${BALANCE_LABELS[(config.buildBalance || 3) - 1]}<br><br>
       ${ageNote}
       <strong>10%-regel:</strong> het wekelijks volume neemt maximaal 10% toe. Elke 4e week is een herstelweek (volume ~28% lager) zodat je lichaam kan adaptëren.<br><br>
       <strong>Periodisering:</strong> het schema verloopt van basisopbouw → uithoudingsvermogen → intensiteit → tapering. In elke fase verschuift de nadruk van volume naar kwaliteit.<br><br>
@@ -1237,6 +1293,7 @@ document.getElementById('target-date').min = todayISO;
 
 // default days selected
 cfg.daysPerWeek = 4;
+cfg.buildBalance = 6;
 
 renderDots(1);
 
