@@ -1144,11 +1144,15 @@ function genRunning(p, cfg) {
   let increaseRate = [null, 0.02, 0.03, 0.04, 0.05, 0.07, 0.10, 0.12, 0.14, 0.16, 0.19, 0.23][curve];
   if (maxRate !== null) increaseRate = Math.min(increaseRate, maxRate);
 
+  // curve verkleint/vergroot ook het startvolume en sessie-minimum
+  const curveStartFactor = [null, 0.22, 0.38, 0.55, 0.72, 0.87, 1.0, 1.10, 1.20, 1.32, 1.44, 1.60][curve] || 1;
+  cfg.sessMinKm = Math.max(1, [null, 1, 1, 1, 1, 2, 3, 3, 4, 4, 5, 5][curve] || 3);
+
   // cfg stuurt kwaliteitssessies en volume
   const qualityFrom = cfg.injKnie || cfg.injEnkel ? Math.max(cfg.qualityFrom, 5) : cfg.qualityFrom;
   const days = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
 
-  let startKm = runStartKm(p, injVol * cfg.volumeFactor);
+  let startKm = Math.max(cfg.sessMinKm, Math.round(runStartKm(p, injVol * cfg.volumeFactor) * curveStartFactor / 2) * 2);
   let curKm   = startKm;
   let maxKm   = 0;
   const weeks = [];
@@ -1200,7 +1204,7 @@ function runSession(day, idx, isLong, isQual, isLate, weekKm, sess, w, total, ta
       tags: ['race'] };
   }
   if (recov || taper) {
-    const km = clamp(Math.round(weekKm / sess), 3, 12);
+    const km = clamp(Math.round(weekKm / sess), cfg.sessMinKm || 1, 12);
     const desc = recov
       ? 'Herstelweek. Rustig en ontspannen — de aanpassingen van de vorige weken worden nu verankerd.'
       : 'Taper. Benen fris houden, souplesse bewaren. Niet de verleiding om harder te gaan.';
@@ -1229,7 +1233,7 @@ function runSession(day, idx, isLong, isQual, isLate, weekKm, sess, w, total, ta
       return { day, name: 'Tempoduurloop', type: 'tempo', volume: km + ' km', desc, tags: ['quality'] };
     }
   }
-  const km = clamp(Math.round(weekKm * (idx === 0 ? 0.30 : 0.26)), 3, 14);
+  const km = clamp(Math.round(weekKm * (idx === 0 ? 0.30 : 0.26)), cfg.sessMinKm || 3, 14);
   let desc = `Rustig duurlooptempo — Zone 2 (conversationeel). ${w <= 2 ? 'Weersta de verleiding om harder te lopen. De basis wordt hier gelegd.' : 'Actief herstel en aerobe opbouw.'}`;
   if (injKnie || injEnkel) desc += ` Na de loop: 5 min stretch (kuit, heupflexor, IT-band) + eventueel ijs op de probleemplek.`;
   return { day, name: 'Duurloop', type: 'easy', volume: km + ' km', desc, tags: ['easy'] };
