@@ -200,6 +200,15 @@ input[type=range] {
 .timing-tab.active { border-color: var(--accent); color: var(--accent); background: rgba(74,222,128,.08); }
 .timing-calc { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.8; }
 .timing-calc strong { color: var(--accent2); }
+
+/* intake feedback + prediction */
+.intake-feedback { font-size: 11px; color: var(--accent2); margin-top: 6px; min-height: 16px; line-height: 1.6; }
+.pred-card { background: var(--surface); border: 1px solid rgba(74,222,128,.25); border-radius: 14px; padding: 18px; margin-bottom: 12px; }
+.pred-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+.pred-row:last-child { border-bottom: none; }
+.pred-key { color: var(--muted); }
+.pred-val { color: var(--accent); font-family: var(--serif); font-size: 16px; font-weight: 700; }
+.pred-warn { color: var(--warn); font-size: 11px; margin-top: 10px; line-height: 1.6; }
 </style>
 </head>
 <body>
@@ -474,6 +483,65 @@ input[type=range] {
       </div>
     </div>
 
+    <!-- INTAKETEST: hardlopen (optioneel) -->
+    <div class="cond-block" id="cond-hl-intake">
+      <hr class="section-divider">
+      <div class="section-heading">Intaketest hardlopen <span style="color:var(--border);font-weight:400;font-size:9px;letter-spacing:0;text-transform:none">— optioneel</span></div>
+      <div class="info-box" style="margin-bottom:14px">
+        Warm 5 minuten rustig op. Loop daarna <strong>12 minuten</strong> zo hard als je vol kunt bijhouden op een vlak parcours. Noteer de afgelegd afstand in meters.
+      </div>
+      <div class="form-block">
+        <label class="form-label">Afstand in 12 min <span class="optional">meters</span></label>
+        <input class="form-input" type="number" id="inp-intake-hl" min="100" max="5000" placeholder="bijv. 2000 m" oninput="onIntakeInput('hl', this.value)">
+        <div class="intake-feedback" id="intake-hl-fb"></div>
+      </div>
+    </div>
+
+    <!-- INTAKETEST: fietsen (optioneel) -->
+    <div class="cond-block" id="cond-ft-intake">
+      <hr class="section-divider">
+      <div class="section-heading">Intaketest fietsen <span style="color:var(--border);font-weight:400;font-size:9px;letter-spacing:0;text-transform:none">— optioneel</span></div>
+      <div class="info-box" style="margin-bottom:14px">
+        Warm 10 minuten rustig op. Fiets daarna <strong>20 minuten</strong> op maximale duurinspanning op vlak terrein of hometrainer. Noteer de afstand in km.
+      </div>
+      <div class="form-block">
+        <label class="form-label">Afstand in 20 min <span class="optional">km</span></label>
+        <input class="form-input" type="number" id="inp-intake-ft" min="0.5" max="30" step="0.1" placeholder="bijv. 8.5 km" oninput="onIntakeInput('ft', this.value)">
+        <div class="intake-feedback" id="intake-ft-fb"></div>
+      </div>
+    </div>
+
+    <!-- INTAKETEST: zwemmen (optioneel) -->
+    <div class="cond-block" id="cond-zw-intake">
+      <hr class="section-divider">
+      <div class="section-heading">Intaketest zwemmen <span style="color:var(--border);font-weight:400;font-size:9px;letter-spacing:0;text-transform:none">— optioneel</span></div>
+      <div class="info-box" style="margin-bottom:14px">
+        Zwem <strong>10 minuten</strong> aaneengesloten op een comfortabel maar uitdagend tempo. Noteer de afstand in meters.
+      </div>
+      <div class="form-block">
+        <label class="form-label">Afstand in 10 min <span class="optional">meters</span></label>
+        <input class="form-input" type="number" id="inp-intake-zw" min="50" max="2000" placeholder="bijv. 350 m" oninput="onIntakeInput('zw', this.value)">
+        <div class="intake-feedback" id="intake-zw-fb"></div>
+      </div>
+    </div>
+
+    <!-- HARTSLAG (optioneel, bij cardio sporten) -->
+    <div class="cond-block" id="cond-hartslag">
+      <hr class="section-divider">
+      <div class="section-heading">Hartslag <span style="color:var(--border);font-weight:400;font-size:9px;letter-spacing:0;text-transform:none">— optioneel</span></div>
+      <div class="form-row">
+        <div class="form-block">
+          <label class="form-label">Rusthartslag <span class="optional">bpm</span></label>
+          <input class="form-input" type="number" id="inp-hf-rust" min="30" max="110" placeholder="bijv. 62" oninput="onHFInput()">
+        </div>
+        <div class="form-block">
+          <label class="form-label">Max. hartslag <span class="optional">bpm</span></label>
+          <input class="form-input" type="number" id="inp-hf-max" min="100" max="220" placeholder="bijv. 185" oninput="onHFInput()">
+        </div>
+      </div>
+      <div id="hf-zones" style="font-size:11px;color:var(--muted);line-height:1.9;margin-top:4px"></div>
+    </div>
+
     <!-- CONDITIONEEL: presteren → tempo + specifiek doel -->
     <div class="cond-block" id="cond-presteren">
       <hr class="section-divider">
@@ -648,6 +716,13 @@ input[type=range] {
       <div class="range-labels"><span>Puur herstel</span><span>Puur presteren</span></div>
     </div>
 
+    <!-- PREDICTION (alleen presteren) -->
+    <div class="pred-card" id="pred-card" style="display:none">
+      <div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:12px">Verwachting op basis van schema</div>
+      <div id="pred-rows"></div>
+      <div class="pred-warn" id="pred-warn"></div>
+    </div>
+
     <div class="schema-cta-wrap">
       <p class="schema-cta-intro">Jouw profiel is opgeslagen. Klik hieronder om het schema te genereren.</p>
       <button class="btn-cta" onclick="generateSchema()">Schema genereren →</button>
@@ -671,6 +746,8 @@ const profile = {
   doel: '', doeldatum: '',
   herstel_van: '', herstel_duur: null,
   injury: [],
+  intaketest: { hl: null, ft: null, zw: null },
+  hf_rust: null, hf_max: null,
   timing_type: 'duur', startdatum: '', einddatum: '',
   tuning: { curve: 6, duur: 12, sessies: 3, focus: 3, perfHerstel: 3 }
 };
@@ -803,12 +880,17 @@ function updateCondBlocks() {
   const hasFT     = profile.activities.includes('fietsen');
   const hasZW     = profile.activities.includes('zwemmen');
 
-  toggle('cond-materiaal', hasMat);
-  toggle('cond-hl-niveau', hasHL);
-  toggle('cond-ft-niveau', hasFT);
-  toggle('cond-zw-niveau', hasZW);
-  toggle('cond-presteren', hasPerf);
-  toggle('cond-herstellen', hasRecover);
+  const hasCardio = hasHL || hasFT || hasZW;
+  toggle('cond-materiaal',     hasMat);
+  toggle('cond-hl-niveau',     hasHL);
+  toggle('cond-ft-niveau',     hasFT);
+  toggle('cond-zw-niveau',     hasZW);
+  toggle('cond-hl-intake',     hasHL);
+  toggle('cond-ft-intake',     hasFT);
+  toggle('cond-zw-intake',     hasZW);
+  toggle('cond-hartslag',      hasCardio);
+  toggle('cond-presteren',     hasPerf);
+  toggle('cond-herstellen',    hasRecover);
   toggle('cond-hardlopen-perf', hasPerf && hasHL);
   toggle('cond-fietsen-perf',   hasPerf && hasFT);
   toggle('cond-zwemmen-perf',   hasPerf && hasZW);
@@ -824,8 +906,12 @@ function buildStep4() {
   if (profile.duur)  profile.tuning.duur    = parseInt(profile.duur);
   if (profile.dagen) profile.tuning.sessies = Math.min(parseInt(profile.dagen), 5);
 
-  // Init activitySessions if not set
-  if (!profile.tuning.activitySessions) profile.tuning.activitySessions = {};
+  // Clean stale activitySessions: only keep entries for current activities
+  const cleanedAS = {};
+  profile.activities.forEach(a => {
+    cleanedAS[a] = (profile.tuning.activitySessions || {})[a] || 0;
+  });
+  profile.tuning.activitySessions = cleanedAS;
 
   const multi = profile.activities.length > 1;
 
@@ -872,6 +958,17 @@ function buildStep4() {
     document.getElementById('conflict-slider').value = profile.tuning.perfHerstel;
     updatePerfHerstel(profile.tuning.perfHerstel);
   }
+
+  // Minimum schema length: presteren met taper vereist minstens 8 weken
+  const cfgPreview = buildSchemaConfig(profile);
+  if (cfgPreview.hasTaper && profile.tuning.duur < 8) {
+    profile.tuning.duur = 8;
+    preselectDuurButtons(8);
+    updateTimingCalc();
+  }
+
+  // Performance prediction card
+  updatePredCard(cfgPreview);
 
   // profile summary
   document.getElementById('profile-name').textContent = buildProfileName();
@@ -934,6 +1031,148 @@ function preselectTuning(rowId, key, val) {
     b.classList.toggle('selected', b.dataset.val === val);
   });
   profile[key] = val;
+}
+
+// ── INTAKETEST ───────────────────────────────────────
+function onIntakeInput(sport, val) {
+  if (!profile.intaketest) profile.intaketest = {};
+  const v = parseFloat(val);
+  profile.intaketest[sport] = v > 0 ? v : null;
+  const fb = document.getElementById('intake-' + sport + '-fb');
+  if (!fb) return;
+  if (!v || v <= 0) { fb.textContent = ''; save(); return; }
+
+  let label = '';
+  if (sport === 'hl') {
+    // Cooper test interpretation
+    if (v >= 3200)      label = '⚡ Gevorderd niveau — uitstekende loopconditie';
+    else if (v >= 2800) label = '⚡ Actief niveau — goede loopconditie';
+    else if (v >= 2400) label = '→ Regelmatig actief — solide basis';
+    else if (v >= 1800) label = '→ Licht actief — opbouwruimte aanwezig';
+    else if (v >= 1200) label = '→ Beginnersniveau — rustige opbouw';
+    else                label = '🌱 Absolute beginner — extreme opbouw aanbevolen';
+    const pace = (12 / (v / 1000)).toFixed(1);
+    label += ` · ${pace} min/km`;
+  } else if (sport === 'ft') {
+    if (v >= 14)     label = '⚡ Gevorderd niveau';
+    else if (v >= 10) label = '→ Actief niveau';
+    else if (v >= 7)  label = '→ Regelmatig actief';
+    else if (v >= 4)  label = '→ Licht actief';
+    else              label = '🌱 Beginnersniveau';
+    label += ` · ~${Math.round(v * 3)} km/uur gemiddeld`;
+  } else if (sport === 'zw') {
+    if (v >= 500)      label = '⚡ Gevorderd niveau';
+    else if (v >= 350) label = '→ Actief niveau';
+    else if (v >= 250) label = '→ Regelmatig actief';
+    else if (v >= 150) label = '→ Licht actief';
+    else               label = '🌱 Beginnersniveau';
+    label += ` · ${Math.round(v * 6)} m/uur`;
+  }
+  fb.textContent = label;
+  save();
+}
+
+// ── HARTSLAG ZONES ────────────────────────────────────
+function onHFInput() {
+  profile.hf_rust = parseInt(document.getElementById('inp-hf-rust').value) || null;
+  profile.hf_max  = parseInt(document.getElementById('inp-hf-max').value)  || null;
+  const zones = getHRZones(profile);
+  const el = document.getElementById('hf-zones');
+  if (!el) return;
+  if (!zones) {
+    const age = parseInt(profile.leeftijd);
+    if (age) el.innerHTML = `Geschatte max. hartslag op basis van leeftijd: <strong style="color:var(--accent2)">${220-age} bpm</strong>`;
+    else el.innerHTML = '';
+  } else {
+    el.innerHTML =
+      `Zone 1 (herstel): ${zones.z1[0]}–${zones.z1[1]} bpm &nbsp;·&nbsp; `+
+      `Zone 2 (aeroob): ${zones.z2[0]}–${zones.z2[1]} bpm &nbsp;·&nbsp; `+
+      `Zone 3 (drempel): ${zones.z3[0]}–${zones.z3[1]} bpm &nbsp;·&nbsp; `+
+      `Zone 4 (intensief): ${zones.z4[0]}–${zones.z4[1]} bpm &nbsp;·&nbsp; `+
+      `Zone 5 (max): ${zones.z5[0]}–${zones.z5[1]} bpm`;
+  }
+  save();
+}
+
+function getHRZones(p) {
+  const rust = parseInt(p.hf_rust);
+  let max = parseInt(p.hf_max);
+  if (!max && p.leeftijd) max = 220 - parseInt(p.leeftijd);
+  if (!rust || !max || max <= rust + 20) return null;
+  const hrr = max - rust;
+  return {
+    z1: [rust,                        Math.round(rust + 0.50 * hrr)],
+    z2: [Math.round(rust + 0.50*hrr), Math.round(rust + 0.60 * hrr)],
+    z3: [Math.round(rust + 0.60*hrr), Math.round(rust + 0.70 * hrr)],
+    z4: [Math.round(rust + 0.70*hrr), Math.round(rust + 0.80 * hrr)],
+    z5: [Math.round(rust + 0.80*hrr), max],
+    max
+  };
+}
+
+function injectHRZones(desc, zones) {
+  if (!zones) return desc;
+  return desc
+    .replace(/Zone 2/g,    `Zone 2 (~${zones.z2[0]}–${zones.z2[1]} bpm)`)
+    .replace(/Zone 3–4/g,  `Zone 3–4 (~${zones.z3[0]}–${zones.z4[1]} bpm)`)
+    .replace(/Zone 3-4/g,  `Zone 3–4 (~${zones.z3[0]}–${zones.z4[1]} bpm)`)
+    .replace(/Zone 3/g,    `Zone 3 (~${zones.z3[0]}–${zones.z3[1]} bpm)`)
+    .replace(/Zone 4/g,    `Zone 4 (~${zones.z4[0]}–${zones.z4[1]} bpm)`)
+    .replace(/Zone 5/g,    `Zone 5 (~${zones.z5[0]}–${zones.z5[1]} bpm)`)
+    .replace(/90% max HR/g, `~${zones.z5[0]} bpm`)
+    .replace(/~90% max HR/g,`~${zones.z5[0]} bpm`);
+}
+
+// ── PERFORMANCE PREDICTION ────────────────────────────
+function buildPerformancePrediction(p, cfg) {
+  if (!cfg.wantsPerf) return null;
+  const curve  = p.tuning.curve;
+  const total  = p.tuning.duur;
+  const isNewRunner = parseInt(p.hl_afstand) === 0;
+  const sessMinKm = isNewRunner
+    ? Math.max(1, [null,1,1,1,1,1,2,2,3,3,4,4][curve] || 2)
+    : Math.max(1, [null,1,1,1,1,2,3,3,4,4,5,5][curve] || 3);
+  const csf  = [null,0.22,0.38,0.55,0.72,0.87,1.0,1.10,1.20,1.32,1.44,1.60][curve] || 1;
+  const rate = [null,0.02,0.03,0.04,0.05,0.07,0.10,0.12,0.14,0.16,0.19,0.23][curve];
+  const { vol: injVol } = injuryRunFactor(p);
+  let startKm = Math.max(sessMinKm, Math.round(runStartKm(p, injVol * cfg.volumeFactor) * csf / 2) * 2);
+  let cur = startKm, peakKm = 0;
+  for (let w = 1; w <= total; w++) {
+    const rec = isRecoveryWeek(w, curve);
+    const tap = isTaperWeek(w, total, cfg.hasTaper);
+    const wkm = tap ? peakKm * (w===total?0.45:0.65) : rec ? cur*0.70 : cur;
+    peakKm = Math.max(peakKm, wkm);
+    if (!rec && !tap) cur *= (1 + rate);
+  }
+  const peakLong = Math.round(peakKm * 0.42);
+  const estRace  = Math.round(peakLong / 0.85);
+  return { startKm: Math.round(startKm * (p.tuning.sessies||3)), peakWeekKm: Math.round(peakKm), peakLong, estRace };
+}
+
+function updatePredCard(cfg) {
+  const card = document.getElementById('pred-card');
+  if (!card) return;
+  if (!cfg || !cfg.wantsPerf || cfg.type !== 'running') { card.style.display = 'none'; return; }
+  const pred = buildPerformancePrediction(profile, cfg);
+  if (!pred) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  const rows = [
+    ['Week 1 volume', '~' + pred.startKm + ' km'],
+    ['Piekweek (max)',  '~' + pred.peakWeekKm + ' km'],
+    ['Langste duurloop', '~' + pred.peakLong + ' km'],
+    ['Wedstrijdcapaciteit', '~' + pred.estRace + ' km'],
+  ];
+  document.getElementById('pred-rows').innerHTML = rows.map(([k,v]) =>
+    `<div class="pred-row"><span class="pred-key">${k}</span><span class="pred-val">${v}</span></div>`
+  ).join('');
+  const warn = document.getElementById('pred-warn');
+  if (warn) {
+    if (profile.doel && profile.doeldatum) {
+      warn.textContent = `Schema eindigt ${formatDateNL(profile.doeldatum) || ''}. Controleer of het schema lang genoeg is voor jouw doel.`;
+    } else {
+      warn.textContent = '';
+    }
+  }
 }
 
 // ── TIMING HELPERS ──────────────────────────────────
@@ -1002,12 +1241,17 @@ function updateTimingCalc() {
     const endVal = inp ? inp.value : '';
     if (endVal) {
       const diffDays = Math.round((new Date(endVal + 'T12:00:00') - new Date(tomorrow + 'T12:00:00')) / (86400000));
+      if (diffDays < 14) {
+        const calcEl2 = document.getElementById('timing-calc');
+        if (calcEl2) calcEl2.innerHTML = '<span style="color:var(--danger)">⚠ Einddatum moet minimaal 2 weken vanaf morgen zijn.</span>';
+        return;
+      }
       weeksCalc = Math.max(2, Math.round(diffDays / 7));
       profile.tuning.duur = weeksCalc;
       endDate = endVal;
     }
     profile.startdatum = tomorrow;
-    profile.einddatum  = endVal;
+    profile.einddatum  = endVal || '';
   }
 
   const calcEl = document.getElementById('timing-calc');
@@ -1180,14 +1424,19 @@ function buildSchemaConfig(p) {
   else if (hasWalk)   type = 'walking';
   else                type = 'running';
 
+  // Combine goal-load (volumeFactor) with physical capacity (bodyFactor) once, centrally.
+  // Using min() ensures neither factor compounds the other — the more restrictive one wins.
+  const bodyFactor = calcBodyFactor(p);
+  const effectiveVolFactor = Math.max(0.28, Math.min(volumeFactor, volumeFactor * bodyFactor));
+
   return {
     type,
     wantsPerf, wantsFitter, wantsSterker, wantsBewegen, wantsHerstel,
     hasConflict, perfBalance,
     hasRun, hasBike, hasSwim, hasStr, hasWalk,
-    volumeFactor, hasTaper, hasRace,
+    volumeFactor: effectiveVolFactor, hasTaper, hasRace,
     qualityEnabled, qualityFrom, maxIntensity,
-    bodyFactor: calcBodyFactor(p),
+    bodyFactor,
     injKnie:  p.injury.includes('knie') || p.injury.includes('shin'),
     injHeup:  p.injury.includes('heup'),
     injRug:   p.injury.includes('rug'),
@@ -1214,6 +1463,14 @@ function generateSchema() {
   else if (type === 'walking')  weeks = genWalking(profile, cfg);
   else if (type === 'combo')    weeks = genCombo(profile, cfg);
   else                          weeks = genRunning(profile, cfg);
+
+  // HR zone injection in session descriptions
+  const hrZones = getHRZones(profile);
+  if (hrZones) {
+    weeks.forEach(wk => wk.sessions.forEach(s => {
+      if (s.desc) s.desc = injectHRZones(s.desc, hrZones);
+    }));
+  }
 
   const startDateStr = (profile.timing_type === 'startdatum' && profile.startdatum)
     ? profile.startdatum
@@ -1292,7 +1549,7 @@ function isRecoveryWeek(w, curve) {
   return w > 1 && w % interval === 0;
 }
 function isTaperWeek(w, total, hasTaper) {
-  if (!hasTaper || total < 6) return false;
+  if (!hasTaper || total < 8) return false;
   return w >= total - (total >= 12 ? 2 : 1);
 }
 function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
@@ -1347,7 +1604,7 @@ function genRunning(p, cfg) {
   const qualityFrom = cfg.injKnie || cfg.injEnkel ? Math.max(cfg.qualityFrom, 5) : cfg.qualityFrom;
   const days = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
 
-  let startKm = Math.max(cfg.sessMinKm, Math.round(runStartKm(p, injVol * cfg.volumeFactor * cfg.bodyFactor) * curveStartFactor / 2) * 2);
+  let startKm = Math.max(cfg.sessMinKm, Math.round(runStartKm(p, injVol * cfg.volumeFactor) * curveStartFactor / 2) * 2);
   let curKm   = startKm;
   let maxKm   = 0;
   const weeks = [];
@@ -1384,12 +1641,21 @@ function genRunning(p, cfg) {
 }
 
 function runStartKm(p, injVol = 1.0) {
+  const sess = clamp(p.tuning?.sessies || 3, 1, 5);
+  const sf   = [null,0.75,0.85,1.0,1.10,1.20][sess];
+
+  // Intaketest (Cooper 12-min) geeft nauwkeurigste startvolume
+  if (p.intaketest && p.intaketest.hl > 0) {
+    const testM = parseFloat(p.intaketest.hl);
+    const sessionKm = clamp((testM / 1000) * 0.28, 1, 14);
+    return clamp(Math.round(sessionKm * sess * sf * injVol / 2) * 2, 2, 60);
+  }
+
   const lvl  = {nauwelijks: 0.30, soms: 0.52, regelmatig: 0.78, actief: 1.0}[p.actief] || 0.52;
   const hlDist = parseInt(p.hl_afstand);
   const isNever = hlDist === 0;
   const distMap = {0: 3, 2: 8, 5: 14, 10: 22, 15: 30, 21: 38, 42: 56};
   const dist = distMap[hlDist] !== undefined ? distMap[hlDist] : 12;
-  const sf   = [null,0.75,0.85,1.0,1.10,1.20][clamp(p.tuning.sessies,1,5)];
   const floorBase = isNever ? 1 : 4;
   const base = clamp(Math.round(dist * lvl * sf / 2) * 2, floorBase, 60);
   return clamp(Math.round(base * injVol / 2) * 2, floorBase, 60);
@@ -1459,10 +1725,17 @@ function genSwimming(p, cfg) {
   const days = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
 
   const zwDist = parseInt(p.zw_afstand);
-  const distBase = {0:300, 500:800, 1000:1500, 1500:2500, 3000:4000, 3800:5000}[zwDist] || 1500;
   const lvl = {nauwelijks:0.35, soms:0.55, regelmatig:0.80, actief:1.0}[p.actief] || 0.55;
   const swimFloor = zwDist === 0 ? 200 : 400;
-  let curM = clamp(Math.round(distBase * lvl * injVol * cfg.volumeFactor * cfg.bodyFactor / 100) * 100, swimFloor, 8000);
+  let baseM;
+  if (p.intaketest && p.intaketest.zw > 0) {
+    // Intaketest (10 min) → weekvolume ≈ 2.5× testafstand × niveau
+    baseM = clamp(Math.round(parseFloat(p.intaketest.zw) * 2.5 * lvl / 100) * 100, swimFloor, 8000);
+  } else {
+    const distBase = {0:300, 500:800, 1000:1500, 1500:2500, 3000:4000, 3800:5000}[zwDist] || 1500;
+    baseM = clamp(Math.round(distBase * lvl / 100) * 100, swimFloor, 8000);
+  }
+  let curM = clamp(Math.round(baseM * injVol * cfg.volumeFactor / 100) * 100, swimFloor, 8000);
   let maxM = 0;
   const weeks = [];
 
@@ -1556,10 +1829,17 @@ function genCycling(p, cfg) {
   const days    = RUN_DAYS_MAP[sess] || RUN_DAYS_MAP[3];
 
   const ftDist = parseInt(p.ft_afstand);
-  const distBase = {0:12, 20:30, 40:50, 60:70, 80:90, 100:110}[ftDist] || 50;
   const lvl      = {nauwelijks:0.35, soms:0.55, regelmatig:0.80, actief:1.0}[p.actief] || 0.55;
   const bikeFloor = ftDist === 0 ? 8 : 20;
-  let curKm      = clamp(Math.round(distBase * lvl * sess * injVol * cfg.volumeFactor * cfg.bodyFactor * 0.8 / 10) * 10, bikeFloor, 200);
+  let baseWeekKm;
+  if (p.intaketest && p.intaketest.ft > 0) {
+    // Intaketest (20 min) → weekvolume ≈ testKm × 0.55 × sessies
+    baseWeekKm = clamp(Math.round(parseFloat(p.intaketest.ft) * 0.55 * sess / 10) * 10, bikeFloor, 200);
+  } else {
+    const distBase = {0:12, 20:30, 40:50, 60:70, 80:90, 100:110}[ftDist] || 50;
+    baseWeekKm = clamp(Math.round(distBase * lvl * sess * 0.8 / 10) * 10, bikeFloor, 200);
+  }
+  let curKm = clamp(Math.round(baseWeekKm * injVol * cfg.volumeFactor / 10) * 10, bikeFloor, 200);
   let maxKm = 0;
   const weeks = [];
 
@@ -1614,7 +1894,7 @@ function genStrength(p, cfg) {
   // Sterker-doel → volledige krachtfasen; fitter-doel → stopt bij hypertrofie
   const maxPhase = cfg.wantsSterker ? 'strength' : 'hypertrophy';
   const startSets = {nauwelijks: 2, soms: 3, regelmatig: 3, actief: 4}[p.actief] || 3;
-  let curSets = Math.max(1, Math.round(startSets * cfg.volumeFactor * cfg.bodyFactor));
+  let curSets = Math.max(1, Math.round(startSets * cfg.volumeFactor));
   const weeks = [];
 
   for (let w = 1; w <= total; w++) {
@@ -1732,7 +2012,7 @@ function genWalking(p, cfg) {
   const days  = WALK_DAYS_MAP[sess] || WALK_DAYS_MAP[3];
   const increaseRate = [null, 0.02, 0.03, 0.04, 0.05, 0.06, 0.08, 0.10, 0.12, 0.14, 0.17, 0.21][curve];
 
-  let startMin = Math.round(({nauwelijks:20, soms:30, regelmatig:40, actief:50}[p.actief] || 30) * cfg.volumeFactor * cfg.bodyFactor);
+  let startMin = Math.round(({nauwelijks:20, soms:30, regelmatig:40, actief:50}[p.actief] || 30) * cfg.volumeFactor);
   let curMin   = startMin;
   const weeks  = [];
 
@@ -1806,17 +2086,17 @@ function genCombo(p, cfg) {
   const schedule = merged.map((sport, i) => ({ day: allDays[i] || allDays[allDays.length-1], sport }));
 
   // Startvolumes per sport (injury + cfg.volumeFactor + bodyFactor)
-  let runKm  = runStartKm(p, runInjVol * cfg.volumeFactor * cfg.bodyFactor);
+  let runKm  = runStartKm(p, runInjVol * cfg.volumeFactor);
   const ftDistC  = parseInt(p.ft_afstand);
   const distBike = {0:12, 20:30, 40:50, 60:70, 80:90, 100:110}[ftDistC] || 50;
   const lvl      = {nauwelijks:0.35,soms:0.55,regelmatig:0.80,actief:1.0}[p.actief] || 0.55;
-  let bikeKm = clamp(Math.round(distBike * lvl * bikeInjVol * cfg.volumeFactor * cfg.bodyFactor * 0.8 / 10) * 10, ftDistC === 0 ? 8 : 20, 200);
+  let bikeKm = clamp(Math.round(distBike * lvl * bikeInjVol * cfg.volumeFactor * 0.8 / 10) * 10, ftDistC === 0 ? 8 : 20, 200);
   const zwDistC  = parseInt(p.zw_afstand);
   const distSwim = {0:300, 500:800, 1000:1500, 1500:2500, 3000:4000, 3800:5000}[zwDistC] || 1500;
-  let swimM  = clamp(Math.round(distSwim * lvl * swimInjVol * cfg.volumeFactor * cfg.bodyFactor / 100) * 100, zwDistC === 0 ? 200 : 400, 8000);
+  let swimM  = clamp(Math.round(distSwim * lvl * swimInjVol * cfg.volumeFactor / 100) * 100, zwDistC === 0 ? 200 : 400, 8000);
 
   let maxRunKm = 0, maxBikeKm = 0, maxSwimM = 0;
-  let strSets  = Math.max(1, Math.round(({nauwelijks:2,soms:3,regelmatig:3,actief:4}[p.actief]||3) * cfg.volumeFactor * cfg.bodyFactor));
+  let strSets  = Math.max(1, Math.round(({nauwelijks:2,soms:3,regelmatig:3,actief:4}[p.actief]||3) * cfg.volumeFactor));
 
   const runCount  = schedule.filter(s => s.sport === 'hardlopen').length;
   const bikeCount = schedule.filter(s => s.sport === 'fietsen').length;
@@ -1890,7 +2170,7 @@ function genCombo(p, cfg) {
       weekType: taper ? 'taper' : recov ? 'recovery' : 'normal',
       title: recov ? 'Herstelweek' : taper ? 'Afbouwweek'
            : w<=Math.round(total*0.35) ? 'Basisfase' : w<=Math.round(total*0.65) ? 'Opbouwfase' : 'Piekfase',
-      weekVolume: vols.join(' + ') || (cfg.hasStr ? strSets+'× kracht' : '—'),
+      weekVolume: vols.length > 0 ? vols.join(' + ') : cfg.hasStr ? strSets+'× kracht' : cfg.hasWalk ? schedule.length + '× wandelen' : '—',
       sessions
     });
 
@@ -1928,14 +2208,43 @@ function restoreUI() {
   if (profile.doeldatum) document.getElementById('inp-doeldatum').value = profile.doeldatum;
   if (profile.herstel_van) document.getElementById('inp-herstel-van').value = profile.herstel_van;
 
-  const singles = ['actief','dagen','tijd','duur','gym','hl_afstand','hl_tempo','ft_afstand','zw_afstand','herstel_duur','tuning_duur','tuning_sessies'];
-  singles.forEach(key => {
-    if (!profile[key]) return;
-    document.querySelectorAll('[data-val="' + profile[key] + '"]').forEach(el => {
-      const row = el.closest('.num-row, .dist-row, .time-grid');
-      if (row && (row.id === key + '-row' || row.id === key.replace('_','-') + '-row')) el.classList.add('selected');
+  // Restore single-select rows by row-id → profile key mapping
+  const rowMap = {
+    'actief-row':       'actief',
+    'dagen-row':        'dagen',
+    'tijd-row':         'tijd',
+    'duur-row':         'duur',
+    'gym-row':          'gym',
+    'hl-afstand-row':   'hl_afstand',
+    'hl-tempo-row':     'hl_tempo',
+    'ft-afstand-row':   'ft_afstand',
+    'zw-afstand-row':   'zw_afstand',
+    'herstel-duur-row': 'herstel_duur',
+  };
+  Object.entries(rowMap).forEach(([rowId, key]) => {
+    const val = profile[key];
+    if (val === null || val === undefined) return;
+    const row = document.getElementById(rowId);
+    if (!row) return;
+    row.querySelectorAll('.num-btn, .dist-btn, .time-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.val === String(val));
     });
   });
+
+  // Restore intaketest inputs
+  if (profile.intaketest) {
+    const hlEl = document.getElementById('inp-intake-hl');
+    const ftEl = document.getElementById('inp-intake-ft');
+    const zwEl = document.getElementById('inp-intake-zw');
+    if (hlEl && profile.intaketest.hl) { hlEl.value = profile.intaketest.hl; onIntakeInput('hl', profile.intaketest.hl); }
+    if (ftEl && profile.intaketest.ft) { ftEl.value = profile.intaketest.ft; onIntakeInput('ft', profile.intaketest.ft); }
+    if (zwEl && profile.intaketest.zw) { zwEl.value = profile.intaketest.zw; onIntakeInput('zw', profile.intaketest.zw); }
+  }
+
+  // Restore HR inputs
+  if (profile.hf_rust) { const el = document.getElementById('inp-hf-rust'); if (el) el.value = profile.hf_rust; }
+  if (profile.hf_max)  { const el = document.getElementById('inp-hf-max');  if (el) el.value = profile.hf_max;  }
+  onHFInput();
 
   ['injury','materiaal'].forEach(group => {
     const arr = profile[group] || [];

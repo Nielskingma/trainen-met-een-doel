@@ -113,6 +113,39 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .principle-text{font-size:12px;color:var(--muted);line-height:1.6;}
 .principle-text strong{color:var(--text);display:block;margin-bottom:2px;}
 
+/* ── RPE FEEDBACK ── */
+.rpe-row { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.rpe-btn {
+  flex: 1; min-width: 70px; padding: 7px 6px; text-align: center; border: 1px solid var(--border);
+  border-radius: 8px; cursor: pointer; font-size: 11px; font-family: var(--mono);
+  color: var(--muted); background: var(--surface); transition: all .2s;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.rpe-btn:hover { border-color: var(--accent); color: var(--accent); }
+.rpe-btn.rpe-selected { border-color: var(--accent2); color: var(--accent2); background: rgba(134,239,172,.08); }
+
+/* ── ADAPTIVE BANNER ── */
+.adaptive-banner {
+  margin: 0 20px 12px; padding: 14px; border-radius: 12px;
+  border: 1px solid var(--warn); background: rgba(251,191,36,.06);
+  font-size: 12px; color: var(--text); line-height: 1.7;
+}
+.adaptive-banner strong { color: var(--warn); }
+.adaptive-banner .adapt-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.adapt-btn {
+  padding: 6px 14px; border-radius: 8px; font-family: var(--mono); font-size: 11px;
+  letter-spacing: .08em; cursor: pointer; border: 1px solid var(--warn);
+  color: var(--warn); background: none; transition: all .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.adapt-btn:hover { background: rgba(251,191,36,.1); }
+.adapt-btn.primary { background: var(--warn); color: #0d1117; border-color: var(--warn); }
+.adapt-btn.primary:hover { background: #fcd34d; }
+
+/* ── PREDICTION BLOCK ── */
+.pred-overview { background: var(--surface); border: 1px solid rgba(74,222,128,.2); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+.pred-overview .ov-label { margin-bottom: 12px; }
+
 /* ── EMPTY STATE ── */
 .empty-state{text-align:center;padding:60px 20px;}
 .empty-state h2{font-family:var(--serif);font-size:22px;margin-bottom:10px;}
@@ -213,16 +246,108 @@ function regenFromProfile(p, oldSchema) {
 // ── PROGRESS TRACKING ────────────────────────────────
 function doneKey(w, s) { return 'done_' + w + '_' + s; }
 function isDone(w, s)  { return localStorage.getItem(doneKey(w,s)) === '1'; }
+function rpeKey(w, s)  { return 'rpe_' + w + '_' + s; }
+function saveRPE(w, s, rpe, btn) {
+  localStorage.setItem(rpeKey(w, s), rpe);
+  btn.closest('.rpe-row').querySelectorAll('.rpe-btn').forEach(b => b.classList.remove('rpe-selected'));
+  btn.classList.add('rpe-selected');
+  checkAdaptive();
+}
+
+function getWeekRPE(wi) {
+  const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
+  if (!schema) return null;
+  const wk = schema.weeks[wi];
+  if (!wk) return null;
+  const w = wk.weekNum;
+  const vals = wk.sessions.map((_, si) => {
+    const v = localStorage.getItem(rpeKey(w, si));
+    return v ? parseInt(v) : null;
+  }).filter(v => v !== null);
+  if (vals.length === 0) return null;
+  return vals.reduce((a,b) => a+b, 0) / vals.length;
+}
+
+function checkAdaptive() {
+  const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
+  if (!schema) return;
+  const curWeek = getCurrentWeek(schema);
+  let banner = document.getElementById('adaptive-banner');
+  if (!banner) return;
+
+  // Look at the last completed week
+  for (let wi = curWeek - 2; wi >= 0; wi--) {
+    const avg = getWeekRPE(wi);
+    if (avg === null) continue;
+    const w = schema.weeks[wi].weekNum;
+    if (avg >= 3.7) {
+      banner.innerHTML = `
+        <strong>💡 Schema-aanpassing</strong><br>
+        Week ${w} was <strong>zwaar</strong> (gem. inspanning ${avg.toFixed(1)}/5). Wil je het schema iets rustiger maken?
+        <div class="adapt-actions">
+          <button class="adapt-btn primary" onclick="adaptCurve(-1)">Curve zachter</button>
+          <button class="adapt-btn" onclick="dismissAdaptive()">Later</button>
+        </div>`;
+      banner.style.display = 'block';
+      return;
+    }
+    if (avg <= 1.4) {
+      banner.innerHTML = `
+        <strong>💡 Schema-aanpassing</strong><br>
+        Week ${w} was <strong>te licht</strong> (gem. inspanning ${avg.toFixed(1)}/5). Wil je het schema uitdagender maken?
+        <div class="adapt-actions">
+          <button class="adapt-btn primary" onclick="adaptCurve(1)">Curve zwaarder</button>
+          <button class="adapt-btn" onclick="dismissAdaptive()">Later</button>
+        </div>`;
+      banner.style.display = 'block';
+      return;
+    }
+    break;
+  }
+}
+
+function adaptCurve(delta) {
+  const p = JSON.parse(localStorage.getItem('tmg_profile') || '{}');
+  p.tuning = p.tuning || {};
+  p.tuning.curve = Math.max(1, Math.min(11, (p.tuning.curve || 6) + delta));
+  localStorage.setItem('tmg_profile', JSON.stringify(p));
+  dismissAdaptive();
+  regenFromProfile(p, JSON.parse(localStorage.getItem('tmg_generated_schema')));
+}
+
+function dismissAdaptive() {
+  const el = document.getElementById('adaptive-banner');
+  if (el) el.style.display = 'none';
+}
+
 function toggleDone(w, s, el) {
   const key = doneKey(w, s);
+  const card = el.closest('.session-card');
   if (localStorage.getItem(key) === '1') {
     localStorage.removeItem(key);
-    el.closest('.session-card').classList.remove('completed');
+    localStorage.removeItem(rpeKey(w, s));
+    card.classList.remove('completed');
+    const rpeRow = card.querySelector('.rpe-row');
+    if (rpeRow) rpeRow.remove();
   } else {
     localStorage.setItem(key, '1');
-    el.closest('.session-card').classList.add('completed');
+    card.classList.add('completed');
+    // Show RPE selector if not yet rated
+    if (!localStorage.getItem(rpeKey(w, s)) && !card.querySelector('.rpe-row')) {
+      const existing = card.querySelector('.sc-tags');
+      const rpeDiv = document.createElement('div');
+      rpeDiv.className = 'rpe-row';
+      rpeDiv.innerHTML =
+        `<span style="font-size:10px;color:var(--muted);align-self:center;flex-basis:100%;margin-bottom:2px">Hoe was het?</span>` +
+        `<button class="rpe-btn" onclick="saveRPE(${w},${s},1,this);event.stopPropagation()">😮 Te licht</button>` +
+        `<button class="rpe-btn" onclick="saveRPE(${w},${s},3,this);event.stopPropagation()">👍 Prima</button>` +
+        `<button class="rpe-btn" onclick="saveRPE(${w},${s},5,this);event.stopPropagation()">🔥 Zwaar</button>`;
+      if (existing) existing.after(rpeDiv);
+      else card.appendChild(rpeDiv);
+    }
   }
   updateProgress();
+  checkAdaptive();
 }
 
 function countDone(schema) {
@@ -300,6 +425,8 @@ function renderSchema(schema) {
     <div class="pb-track"><div class="pb-fill" id="pb-fill" style="width:${pct}%"></div></div>
   </div>
 
+  <div class="adaptive-banner" id="adaptive-banner" style="display:none"></div>
+
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('schema')">Schema</button>
     <button class="tab-btn" onclick="switchTab('overview')">Opbouw</button>
@@ -320,6 +447,27 @@ function renderSchema(schema) {
     curCard.classList.add('open');
     setTimeout(() => curCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
   }
+
+  // Restore RPE selections on already-completed sessions
+  schema.weeks.forEach(wk => {
+    wk.sessions.forEach((_, si) => {
+      const w = wk.weekNum;
+      const rpe = localStorage.getItem(rpeKey(w, si));
+      if (!rpe || !isDone(w, si)) return;
+      const card = document.querySelector(`[onclick="toggleDone(${w},${si},this)"]`)?.closest('.session-card');
+      if (!card || card.querySelector('.rpe-row')) return;
+      const rpeDiv = document.createElement('div');
+      rpeDiv.className = 'rpe-row';
+      const labels = {1:'😮 Te licht', 3:'👍 Prima', 5:'🔥 Zwaar'};
+      rpeDiv.innerHTML =
+        `<span style="font-size:10px;color:var(--muted);align-self:center;flex-basis:100%;margin-bottom:2px">Hoe was het?</span>` +
+        [1,3,5].map(v => `<button class="rpe-btn ${parseInt(rpe)===v?'rpe-selected':''}" onclick="saveRPE(${w},${si},${v},this);event.stopPropagation()">${labels[v]}</button>`).join('');
+      const tags = card.querySelector('.sc-tags');
+      if (tags) tags.after(rpeDiv); else card.appendChild(rpeDiv);
+    });
+  });
+
+  checkAdaptive();
 }
 
 function renderWeek(wk, wi, curWeek) {
@@ -378,13 +526,46 @@ function renderOverview(schema, p) {
   const lvl = levelMap[p.actief] || 'onbekend';
   const goals = (p.goals||[]).map(g => ({presteren:'Presteren',fitter:'Fitter worden',sterker:'Sterker worden',bewegen:'Meer bewegen',herstellen:'Herstellen'}[g]||g)).join(', ');
   const activities = (p.activities||[]).map(a => ({hardlopen:'Hardlopen',fietsen:'Fietsen',zwemmen:'Zwemmen',kracht:'Kracht',wandelen:'Wandelen',thuis:'Thuis/bodyweight'}[a]||a)).join(', ');
-  const curve = ['','Rustig opbouwen','Geleidelijk','Gemiddeld','Progressief','Snel opbouwen'][p.tuning?.curve||3];
+  const curveLabels = ['','Extreme herstel','Heel rustig','Rustig','Voorzichtig','Licht','Gebalanceerd','Actief','Progressief','Intensief','Heel intensief','Maximaal'];
+  const curve = curveLabels[p.tuning?.curve||6] || 'Gebalanceerd';
+
+  // Performance prediction for presteren goal + running
+  const wantsPerf = (p.goals||[]).includes('presteren');
+  const isRunSchema = schema.type === 'running' || schema.type === 'combo';
+  let predHtml = '';
+  if (wantsPerf && isRunSchema) {
+    const runWeekVols = schema.weeks.filter(w => w.weekType !== 'taper').map(w => {
+      const m = w.weekVolume && w.weekVolume.match(/^(\d+)/);
+      return m ? parseInt(m[1]) : 0;
+    });
+    const peakWkVol = runWeekVols.length ? Math.max(...runWeekVols) : 0;
+    const firstWkVol = runWeekVols[0] || 0;
+    const longRun = schema.weeks.reduce((max, wk) => {
+      const lr = wk.sessions.find(s => s.type === 'long');
+      if (!lr) return max;
+      const m = lr.volume && lr.volume.match(/^(\d+)/);
+      return m ? Math.max(max, parseInt(m[1])) : max;
+    }, 0);
+    const estRace = longRun ? Math.round(longRun / 0.85) : 0;
+    predHtml = `
+    <div class="pred-overview">
+      <div class="ov-label">Verwachting aan het einde van het schema</div>
+      ${[
+        ['Week 1 volume', firstWkVol + ' km'],
+        ['Piekweek volume', peakWkVol + ' km'],
+        ['Langste duurloop', longRun + ' km'],
+        ['Geschatte wedstrijdcapaciteit', '~' + estRace + ' km'],
+      ].map(([k,v]) => `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px;"><span style="color:var(--muted)">${k}</span><span style="font-family:var(--serif);font-size:16px;font-weight:700;color:var(--accent)">${v}</span></div>`).join('')}
+      ${p.doel ? `<div style="font-size:11px;color:var(--muted);margin-top:10px">Doel: <strong style="color:var(--accent2)">${p.doel}</strong>${p.doeldatum ? ' op ' + p.doeldatum : ''}</div>` : ''}
+    </div>`;
+  }
 
   // Calculate recovery week indices
   const recovWks = schema.weeks.filter(w=>w.weekType==='recovery').map(w=>w.weekNum);
   const recovStr = recovWks.length ? 'Week ' + recovWks.join(', ') : '—';
 
   return `
+  ${predHtml}
   <div class="overview-block">
     <div class="ov-label">Jouw profiel</div>
     <div style="font-size:13px;color:var(--muted);line-height:1.8;">
