@@ -144,6 +144,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .adapt-btn.primary { background: var(--warn); color: #0d1117; border-color: var(--warn); }
 .adapt-btn.primary:hover { background: #fcd34d; }
 
+.resume-banner {
+  margin: 16px 20px; padding: 14px; border-radius: 12px;
+  border: 1px solid var(--warn); background: rgba(251,191,36,.06);
+  font-size: 12px; color: var(--text); line-height: 1.7;
+}
+.resume-banner strong { color: var(--warn); }
+.resume-banner .adapt-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
 /* ── PREDICTION BLOCK ── */
 .pred-overview { background: var(--surface); border: 1px solid rgba(74,222,128,.2); border-radius: 14px; padding: 18px; margin-bottom: 14px; }
 .pred-overview .ov-label { margin-bottom: 12px; }
@@ -232,6 +240,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <button class="fab-start" onclick="openFreeStart()">▶ Start training</button>
 
 <div class="page" id="page">
+  <div class="resume-banner" id="resume-banner" style="display:none">
+    <strong>Onderbroken training gevonden</strong><br>
+    <span id="resume-summary"></span>
+    <div class="adapt-actions">
+      <button class="adapt-btn primary" onclick="resumeActiveTraining()">Hervatten</button>
+      <button class="adapt-btn" onclick="discardActiveTraining()">Verwijderen</button>
+    </div>
+  </div>
+
   <div id="empty-state" class="empty-state" style="display:none;">
     <h2>Nog geen schema</h2>
     <p>Maak eerst jouw persoonlijke schema via de onboarding.</p>
@@ -273,6 +290,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
       <div class="gps-search-status"></div>
       <button class="trk-btn trk-btn-primary trk-start-btn-gated" id="free-start-btn" onclick="beginFreeTraining()" disabled>▶ <span id="free-start-label">Start training</span></button>
+      <button class="trk-btn trk-btn-lock trk-pause-btn" id="free-pause-btn" onclick="trkPauseToggle()" style="display:none">⏸ Pauzeren</button>
       <button class="trk-btn trk-btn-lock" id="free-lock-btn" onclick="trkLockScreen()" style="display:none">🔒 Scherm vergrendelen</button>
       <button class="trk-btn trk-btn-danger" id="free-stop-btn" onclick="trkStop()" style="display:none">■ Stop training</button>
     </div>
@@ -304,6 +322,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
     <div class="gps-search-status"></div>
     <button class="trk-btn trk-btn-primary trk-start-btn-gated" id="sess-start-btn" onclick="beginSessionTraining()" disabled>▶ Start training</button>
+    <button class="trk-btn trk-btn-lock trk-pause-btn" id="sess-pause-btn" onclick="trkPauseToggle()" style="display:none">⏸ Pauzeren</button>
     <button class="trk-btn trk-btn-lock" id="sess-lock-btn" onclick="trkLockScreen()" style="display:none">🔒 Scherm vergrendelen</button>
     <button class="trk-btn trk-btn-danger" id="sess-stop-btn" onclick="trkStop()" style="display:none">■ Stop training</button>
   </div>
@@ -402,6 +421,24 @@ if (!raw) {
     renderSessiesAdjust(schema);
   }
 }
+
+// ── ONDERBROKEN TRAINING HERSTELLEN ──────────────────
+// Als de pagina op de achtergrond gedood werd (bijv. tijdens een langer
+// telefoongesprek) is alle live tracker-state normaal gesproken kwijt.
+// tmg_active_training wordt elke seconde bijgewerkt tijdens het trainen en
+// alleen opgeruimd bij bewust stoppen/opslaan/sluiten — staat 'ie er bij het
+// laden nog steeds, dan was de vorige training dus onderbroken.
+(function checkForInterruptedTraining() {
+  const activeRaw = localStorage.getItem('tmg_active_training');
+  if (!activeRaw) return;
+  let saved;
+  try { saved = JSON.parse(activeRaw); } catch (e) { localStorage.removeItem('tmg_active_training'); return; }
+  const elapsedMin = Math.max(0, Math.round((Date.now() - saved.startTime) / 60000));
+  const sportLabel = saved.label || saved.freeSport || 'Training';
+  document.getElementById('resume-summary').textContent =
+    `${sportLabel} · ${saved.totalDist.toFixed(2)} km · gestart ${elapsedMin} min geleden`;
+  document.getElementById('resume-banner').style.display = 'block';
+})();
 
 // ── SESSIES ADJUST ────────────────────────────────────
 function renderSessiesAdjust(schema) {
@@ -881,6 +918,8 @@ let trkWatchId = null, trkInterval = null, trkStartTime = null, trkTotalDist = 0
 let trkWeek = null, trkSi = null, trkWakeLock = null, trkUnlockTimer = null;
 let trkWarmupMin = null, trkPhase = 'main', trkLapSplit = null, trkElapsedAtStop = 0;
 let trkFreeSport = null;
+let trkPaused = false, trkPauseStartedAt = null;
+let trkLabel = '', trkDescText = '', trkTargetLabelText = '';
 
 // ── HARTSLAG (Bluetooth-borstband of horloge met broadcast-app) ──
 let hrDevice = null, hrReadings = [];
@@ -992,6 +1031,7 @@ function openFreeStart() {
 // hartslagkoppeling) i.p.v. naar een apart bevestigingsscherm te gaan.
 function selectFreeSport(sport, label) {
   trkFreeSport = sport;
+  trkLabel = label; trkDescText = ''; trkTargetLabelText = '';
   document.querySelectorAll('#trk-sportpick .sportpick-btn').forEach(b => {
     const isChosen = b.dataset.sport === sport;
     b.classList.toggle('selected', isChosen);
@@ -1004,6 +1044,7 @@ function selectFreeSport(sport, label) {
 
 function resetFreeStartButtons() {
   document.getElementById('free-start-btn').style.display = 'block';
+  document.getElementById('free-pause-btn').style.display = 'none';
   document.getElementById('free-lock-btn').style.display = 'none';
   document.getElementById('free-stop-btn').style.display = 'none';
 }
@@ -1017,6 +1058,7 @@ function beginFreeTraining() {
   document.querySelectorAll('.trk-time-el').forEach(el => el.textContent = '00:00');
   document.querySelectorAll('.trk-pace-el').forEach(el => el.textContent = '--:--');
   document.getElementById('free-start-btn').style.display = 'none';
+  document.getElementById('free-pause-btn').style.display = 'block';
   document.getElementById('free-lock-btn').style.display = 'block';
   document.getElementById('free-stop-btn').style.display = 'block';
   trkBeginRun();
@@ -1024,6 +1066,7 @@ function beginFreeTraining() {
 }
 
 function showIdleScreen(label, targetLabel, desc) {
+  trkLabel = label; trkTargetLabelText = targetLabel; trkDescText = desc || '';
   document.getElementById('trk-idle-name').textContent = label;
   document.getElementById('trk-idle-target-label').textContent = targetLabel;
   const descBox = document.getElementById('trk-idle-desc-box');
@@ -1033,6 +1076,7 @@ function showIdleScreen(label, targetLabel, desc) {
   document.getElementById('trk-time').textContent = '00:00';
   document.getElementById('trk-pace').textContent = '--:--';
   document.getElementById('sess-start-btn').style.display = 'block';
+  document.getElementById('sess-pause-btn').style.display = 'none';
   document.getElementById('sess-lock-btn').style.display = 'none';
   document.getElementById('sess-stop-btn').style.display = 'none';
   updateHrUI();
@@ -1042,6 +1086,7 @@ function showIdleScreen(label, targetLabel, desc) {
 // Blijft op hetzelfde scherm — zelfde patroon als beginFreeTraining().
 function beginSessionTraining() {
   document.getElementById('sess-start-btn').style.display = 'none';
+  document.getElementById('sess-pause-btn').style.display = 'block';
   document.getElementById('sess-lock-btn').style.display = 'block';
   document.getElementById('sess-stop-btn').style.display = 'block';
   trkBeginRun();
@@ -1054,6 +1099,8 @@ function trkBeginRun() {
   // ankerpunt voor de eerste afstandsmeting — geen nieuwe "koude" GPS-start.
   trkStopGpsSearch();
   trkTotalDist = 0; trkStartTime = Date.now();
+  trkPaused = false; trkPauseStartedAt = null;
+  document.querySelectorAll('.trk-pause-btn').forEach(b => b.textContent = '⏸ Pauzeren');
   trkPhase = trkWarmupMin ? 'warmup' : 'main';
   trkLapSplit = null;
   hrReadings = [];
@@ -1070,6 +1117,12 @@ function trkBeginRun() {
     banner.style.display = 'none';
   }
 
+  trkStartWatchers();
+}
+
+// Gedeeld door een verse start, een hervatting na pauze, en een hervatting
+// na het herladen van de pagina (zie tmg_active_training).
+function trkStartWatchers() {
   trkInterval = setInterval(trkUpdateTimer, 1000);
   trkWatchId = navigator.geolocation.watchPosition(
     trkOnGPSUpdate,
@@ -1185,6 +1238,26 @@ function trkUpdateTimer() {
       btn.disabled = true;
     }
   }
+
+  persistActiveTraining();
+}
+
+// Legt de lopende training elke seconde vast, zodat een gedode/herladen
+// pagina (bijv. na een tijdje op de achtergrond tijdens een telefoongesprek)
+// bij terugkomst hersteld kan worden i.p.v. gewoon kwijt te zijn.
+function persistActiveTraining() {
+  localStorage.setItem('tmg_active_training', JSON.stringify({
+    week: trkWeek, si: trkSi, freeSport: trkFreeSport,
+    label: trkLabel, desc: trkDescText, targetLabel: trkTargetLabelText,
+    totalDist: trkTotalDist, startTime: trkStartTime, lastPos: trkLastPos,
+    warmupMin: trkWarmupMin, phase: trkPhase, lapSplit: trkLapSplit,
+    hrReadings, paused: trkPaused, pauseStartedAt: trkPauseStartedAt,
+    savedAt: Date.now(),
+  }));
+}
+
+function clearActiveTraining() {
+  localStorage.removeItem('tmg_active_training');
 }
 
 function trkUpdatePace() {
@@ -1214,10 +1287,33 @@ function trkStopWatchers() {
   if (trkWakeLock) { trkWakeLock.release().catch(() => {}); trkWakeLock = null; }
 }
 
+// Voor als je even iets anders moet doen (bericht sturen, bellen) zonder de
+// training te beëindigen. Tijd tijdens de pauze telt niet mee (trkStartTime
+// schuift op) en de eerste positie na hervatten wordt niet als afstand
+// meegeteld (voorkomt dat verplaatsing tijdens de pauze wordt bijgeteld).
+function trkPauseToggle() {
+  if (!trkPaused) {
+    trkPaused = true;
+    trkPauseStartedAt = Date.now();
+    if (trkInterval) { clearInterval(trkInterval); trkInterval = null; }
+    if (trkWatchId !== null) { navigator.geolocation.clearWatch(trkWatchId); trkWatchId = null; }
+    document.querySelectorAll('.trk-pause-btn').forEach(b => b.textContent = '▶ Hervatten');
+  } else {
+    trkPaused = false;
+    trkStartTime += Date.now() - trkPauseStartedAt;
+    trkPauseStartedAt = null;
+    trkLastPos = null;
+    trkStartWatchers();
+    document.querySelectorAll('.trk-pause-btn').forEach(b => b.textContent = '⏸ Pauzeren');
+  }
+  persistActiveTraining();
+}
+
 function trkStop() {
   const elapsed = Math.floor((Date.now() - trkStartTime) / 1000);
   trkElapsedAtStop = elapsed;
   trkStopWatchers();
+  clearActiveTraining();
   document.getElementById('trk-done-dist').textContent = trkTotalDist.toFixed(2);
   document.getElementById('trk-done-time').textContent = trkFormatTime(elapsed);
   if (trkTotalDist > 0.1) {
@@ -1302,8 +1398,66 @@ function trkSave() {
 function trkClose() {
   trkStopWatchers();
   trkStopGpsSearch();
+  clearActiveTraining();
   document.getElementById('tracker-overlay').classList.remove('open');
   trkSetState('sportpick');
+}
+
+function discardActiveTraining() {
+  clearActiveTraining();
+  document.getElementById('resume-banner').style.display = 'none';
+}
+
+function resumeActiveTraining() {
+  const raw = localStorage.getItem('tmg_active_training');
+  if (!raw) return;
+  const saved = JSON.parse(raw);
+
+  trkWeek = saved.week; trkSi = saved.si; trkFreeSport = saved.freeSport;
+  trkLabel = saved.label; trkDescText = saved.desc; trkTargetLabelText = saved.targetLabel;
+  trkTotalDist = saved.totalDist; trkStartTime = saved.startTime; trkLastPos = saved.lastPos;
+  trkWarmupMin = saved.warmupMin; trkPhase = saved.phase; trkLapSplit = saved.lapSplit;
+  hrReadings = saved.hrReadings || [];
+  trkPaused = saved.paused; trkPauseStartedAt = saved.pauseStartedAt;
+
+  document.getElementById('resume-banner').style.display = 'none';
+
+  if (trkWeek !== null) {
+    document.getElementById('trk-idle-name').textContent = trkLabel;
+    document.getElementById('trk-idle-target-label').textContent = trkTargetLabelText;
+    const descBox = document.getElementById('trk-idle-desc-box');
+    if (trkDescText) { descBox.textContent = trkDescText; descBox.style.display = 'block'; }
+    else { descBox.style.display = 'none'; }
+    document.getElementById('sess-start-btn').style.display = 'none';
+    document.getElementById('sess-pause-btn').style.display = 'block';
+    document.getElementById('sess-lock-btn').style.display = 'block';
+    document.getElementById('sess-stop-btn').style.display = 'block';
+    document.getElementById('trk-gps-dot').classList.add('locked');
+    trkSetState('idle');
+  } else {
+    document.querySelectorAll('#trk-sportpick .sportpick-btn').forEach(b => {
+      const isChosen = b.dataset.sport === trkFreeSport;
+      b.classList.toggle('selected', isChosen);
+      b.style.display = isChosen ? 'flex' : 'none';
+    });
+    document.getElementById('free-start-label').textContent = trkLabel;
+    document.getElementById('free-start-section').style.display = 'block';
+    document.getElementById('free-start-btn').style.display = 'none';
+    document.getElementById('free-pause-btn').style.display = 'block';
+    document.getElementById('free-lock-btn').style.display = 'block';
+    document.getElementById('free-stop-btn').style.display = 'block';
+    trkSetState('sportpick');
+  }
+
+  document.querySelectorAll('.trk-dist-el').forEach(el => el.textContent = trkTotalDist.toFixed(2));
+  document.querySelectorAll('.trk-time-el').forEach(el => el.textContent = trkFormatTime(Math.floor((Date.now() - trkStartTime) / 1000)));
+  document.querySelectorAll('.trk-hr-el').forEach(el => el.textContent = hrAverageBpm() || '--');
+  document.querySelectorAll('.trk-pause-btn').forEach(b => b.textContent = trkPaused ? '▶ Hervatten' : '⏸ Pauzeren');
+  trkUpdatePace();
+  updateHrUI();
+
+  document.getElementById('tracker-overlay').classList.add('open');
+  if (!trkPaused) trkStartWatchers();
 }
 
 function trkSetState(state) {
