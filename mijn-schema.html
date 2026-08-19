@@ -260,6 +260,38 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 </div>
 
 <script>
+// ── VOORTGANG BEWAKEN NA HERBEREKENING ───────────────
+// Bij het opnieuw genereren van een schema (curve-aanpassing, sessies/week
+// bijstellen, of "Schema aanpassen") wordt hier het vorige schema mee
+// gestuurd. Alleen weken waar het aantal sessies (en dus de dag-indeling)
+// ongewijzigd is gebleven, houden hun afvinkjes/RPE/GPS-resultaten — bij een
+// gewijzigde indeling zou een oud vinkje op de verkeerde, nieuwe sessie
+// terechtkomen, dus die voortgang wordt dan bewust gewist in plaats van
+// foutief hergebruikt.
+function reconcileProgressAfterRegen(newSchema) {
+  const prevRaw = localStorage.getItem('tmg_prev_schema');
+  localStorage.removeItem('tmg_prev_schema');
+  if (!prevRaw) return;
+  let prevSchema;
+  try { prevSchema = JSON.parse(prevRaw); } catch(e) { return; }
+
+  const len = Math.max(prevSchema.weeks.length, newSchema.weeks.length);
+  for (let wi = 0; wi < len; wi++) {
+    const prevWk = prevSchema.weeks[wi];
+    const newWk  = newSchema.weeks[wi];
+    if (!prevWk || !newWk) continue;
+    const w = newWk.weekNum;
+    const sameStructure = prevWk.sessions.length === newWk.sessions.length;
+    if (sameStructure) continue;
+    const clearUpTo = Math.max(prevWk.sessions.length, newWk.sessions.length);
+    for (let si = 0; si < clearUpTo; si++) {
+      localStorage.removeItem(doneKey(w, si));
+      localStorage.removeItem(rpeKey(w, si));
+      localStorage.removeItem(trkKey(w, si));
+    }
+  }
+}
+
 // ── LOAD SCHEMA ──────────────────────────────────────
 const raw = localStorage.getItem('tmg_generated_schema');
 if (!raw) {
@@ -267,6 +299,7 @@ if (!raw) {
   document.getElementById('schema-view').style.display = 'none';
 } else {
   const schema = JSON.parse(raw);
+  reconcileProgressAfterRegen(schema);
   renderSchema(schema);
   renderSessiesAdjust(schema);
 }

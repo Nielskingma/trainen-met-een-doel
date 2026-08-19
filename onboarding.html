@@ -1491,6 +1491,8 @@ function generateSchema() {
     generated: new Date().toISOString(),
     startDate: new Date(startDateStr + 'T12:00:00').toISOString()
   };
+  const previous = localStorage.getItem('tmg_generated_schema');
+  if (previous) localStorage.setItem('tmg_prev_schema', previous);
   localStorage.setItem('tmg_generated_schema', JSON.stringify(schema));
   window.location.href = 'mijn-schema.html';
 }
