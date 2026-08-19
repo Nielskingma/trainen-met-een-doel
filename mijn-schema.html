@@ -277,25 +277,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
   <div class="trk-state" id="trk-idle">
     <div class="trk-info">
-      <span class="trk-gps-dot" id="trk-idle-gps-dot"></span>
+      <span class="trk-gps-dot" id="trk-gps-dot"></span>
       <strong id="trk-idle-name">—</strong><br>
       <span id="trk-idle-target-label" style="font-size:12px;color:var(--accent);"></span>
     </div>
-    <button class="trk-btn trk-btn-lock hr-connect-btn" onclick="hrConnect()" style="display:none">❤️ Koppel hartslagsensor</button>
-    <div class="hr-status" style="text-align:center;font-size:11px;color:var(--muted);margin:-4px 0 12px;"></div>
-    <button class="trk-btn trk-btn-primary" onclick="beginSessionTraining()">▶ Start training</button>
-  </div>
-
-  <div class="trk-state" id="trk-active">
-    <div class="trk-info">
-      <span class="trk-gps-dot" id="trk-gps-dot"></span>
-      <strong id="trk-name">—</strong><br>
-      <span id="trk-target-label" style="font-size:12px;color:var(--accent);"></span>
-    </div>
+    <div class="trk-info" id="trk-idle-desc-box" style="display:none"></div>
     <div class="trk-lap-banner" id="trk-lap-banner" style="display:none">
       <span id="trk-lap-label">Warming-up</span>
       <button class="trk-lap-next" id="trk-lap-next-btn" onclick="trkNextPhase()" disabled>Volgende: hoofdtraining →</button>
     </div>
+    <button class="trk-btn trk-btn-lock hr-connect-btn" onclick="hrConnect()" style="display:none">❤️ Koppel hartslagsensor</button>
+    <div class="hr-status" style="text-align:center;font-size:11px;color:var(--muted);margin:-4px 0 12px;"></div>
+
     <div class="trk-big">
       <div class="val trk-dist-el" id="trk-dist">0.00</div>
       <div class="unit">kilometer</div>
@@ -305,8 +298,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="trk-box"><div class="val trk-pace-el" id="trk-pace">--:--</div><div class="lbl">Tempo /km</div></div>
       <div class="trk-box"><div class="val trk-hr-el" id="trk-hr">--</div><div class="lbl">Hartslag</div></div>
     </div>
-    <button class="trk-btn trk-btn-lock" onclick="trkLockScreen()">🔒 Scherm vergrendelen</button>
-    <button class="trk-btn trk-btn-danger" onclick="trkStop()">■ Stop training</button>
+
+    <button class="trk-btn trk-btn-primary" id="sess-start-btn" onclick="beginSessionTraining()">▶ Start training</button>
+    <button class="trk-btn trk-btn-lock" id="sess-lock-btn" onclick="trkLockScreen()" style="display:none">🔒 Scherm vergrendelen</button>
+    <button class="trk-btn trk-btn-danger" id="sess-stop-btn" onclick="trkStop()" style="display:none">■ Stop training</button>
   </div>
 
   <div class="trk-state" id="trk-done">
@@ -749,7 +744,7 @@ function renderWeek(wk, wi, curWeek) {
       ${s.desc ? `<div class="sc-desc">${s.desc}</div>` : ''}
       ${trk ? `<div class="sc-tracked">📍 ${trk.dist} km · ${trk.time} · ${trk.pace}/km${trk.hrAvg ? ' · ❤️ ' + trk.hrAvg + ' bpm' : ''}</div>` : ''}
       <div class="sc-tags">${(s.tags||[]).map(tagBadge).join('')}</div>
-      ${canTrack ? `<button class="sc-start" onclick="event.stopPropagation();startTracking(${w},${si})">${done ? '↻ Opnieuw starten' : '▶ Start met GPS'}</button>` : ''}
+      ${canTrack ? `<button class="sc-start" onclick="event.stopPropagation();startTracking(${w},${si})">${done ? '↻ Opnieuw starten' : '▶ Start training'}</button>` : ''}
     </div>`;
   }).join('');
 
@@ -969,7 +964,7 @@ function startTracking(w, si) {
   let targetLabel = targetKm ? `Doel: ${targetKm} km` : '';
   if (trkWarmupMin) targetLabel += (targetLabel ? ' · ' : '') + `eerste ${trkWarmupMin} min warming-up (aparte lap)`;
 
-  showIdleScreen(label, targetLabel);
+  showIdleScreen(label, targetLabel, session.desc);
   trkSetState('idle');
   document.getElementById('tracker-overlay').classList.add('open');
 }
@@ -1023,20 +1018,28 @@ function beginFreeTraining() {
   trkLockScreen();
 }
 
-function showIdleScreen(label, targetLabel) {
+function showIdleScreen(label, targetLabel, desc) {
   document.getElementById('trk-idle-name').textContent = label;
   document.getElementById('trk-idle-target-label').textContent = targetLabel;
-  document.getElementById('trk-name').textContent = label;
-  document.getElementById('trk-target-label').textContent = targetLabel;
+  const descBox = document.getElementById('trk-idle-desc-box');
+  if (desc) { descBox.textContent = desc; descBox.style.display = 'block'; }
+  else { descBox.textContent = ''; descBox.style.display = 'none'; }
   document.getElementById('trk-dist').textContent = '0.00';
   document.getElementById('trk-time').textContent = '00:00';
   document.getElementById('trk-pace').textContent = '--:--';
+  document.getElementById('sess-start-btn').style.display = 'block';
+  document.getElementById('sess-lock-btn').style.display = 'none';
+  document.getElementById('sess-stop-btn').style.display = 'none';
   updateHrUI();
 }
 
+// Blijft op hetzelfde scherm — zelfde patroon als beginFreeTraining().
 function beginSessionTraining() {
-  trkSetState('active');
+  document.getElementById('sess-start-btn').style.display = 'none';
+  document.getElementById('sess-lock-btn').style.display = 'block';
+  document.getElementById('sess-stop-btn').style.display = 'block';
   trkBeginRun();
+  trkLockScreen();
 }
 
 function trkBeginRun() {
@@ -1234,7 +1237,6 @@ function trkClose() {
 function trkSetState(state) {
   document.getElementById('trk-sportpick').className = `trk-state${state === 'sportpick' ? ' visible' : ''}`;
   document.getElementById('trk-idle').className = `trk-state${state === 'idle' ? ' visible' : ''}`;
-  document.getElementById('trk-active').className = `trk-state${state === 'active' ? ' visible' : ''}`;
   document.getElementById('trk-done').className = `trk-state${state === 'done' ? ' visible' : ''}`;
 }
 
