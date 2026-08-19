@@ -159,23 +159,31 @@ body::before {
 .info-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
 .info-box strong { color: var(--accent); }
 
-/* ── STAP 4: PROFIEL + TUNING ── */
+/* ── STAP 4: PROFIEL + TUNING (compact — dit is bijstellen, geen nieuwe vraag) ── */
+#step-4 .step-title { font-size: 19px; margin-bottom: 3px; }
+#step-4 .step-sub { margin-bottom: 18px; }
+
 #step-4 .profile-summary {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  padding: 20px; margin-bottom: 24px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 16px; margin-bottom: 14px;
 }
-.profile-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.profile-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .profile-tag {
   font-size: 10px; padding: 3px 10px; border-radius: 99px;
   background: rgba(74,222,128,.1); color: var(--accent); border: 1px solid rgba(74,222,128,.3);
 }
 
-.tuning-card {
+/* Eén compact paneel i.p.v. losse kaarten per instelling */
+.tuning-panel {
   background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-  padding: 18px; margin-bottom: 12px;
+  padding: 2px 16px; margin-bottom: 14px;
 }
-.tuning-label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-.tuning-label span { color: var(--accent); font-family: var(--serif); font-size: 16px; font-weight: 700; text-transform: none; letter-spacing: 0; }
+.tuning-card {
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.tuning-card:last-child { border-bottom: none; }
+.tuning-label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+.tuning-label span { color: var(--accent); font-family: var(--serif); font-size: 15px; font-weight: 700; text-transform: none; letter-spacing: 0; }
 
 input[type=range] {
   width: 100%; accent-color: var(--accent); cursor: pointer;
@@ -183,7 +191,7 @@ input[type=range] {
 }
 .range-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); margin-top: 6px; }
 
-.schema-cta-wrap { margin-top: 28px; }
+.schema-cta-wrap { margin-top: 16px; }
 .schema-cta-intro { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; text-align: center; }
 
 /* privacy note */
@@ -631,12 +639,13 @@ input[type=range] {
     <p class="step-sub">Op basis van jouw profiel. Pas de knoppen aan naar wens.</p>
 
     <div class="profile-summary">
-      <div style="font-size:11px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Jouw profiel</div>
-      <div id="profile-name" style="font-family:var(--serif);font-size:18px;font-weight:700;line-height:1.2;margin-bottom:4px"></div>
-      <div id="profile-desc" style="font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:10px"></div>
+      <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px">Jouw profiel</div>
+      <div id="profile-name" style="font-family:var(--serif);font-size:15px;font-weight:700;line-height:1.2;margin-bottom:2px"></div>
+      <div id="profile-desc" style="font-size:12px;color:var(--muted);line-height:1.5"></div>
       <div class="profile-tags" id="profile-tags"></div>
     </div>
 
+    <div class="tuning-panel">
     <!-- TUNING: opbouwcurve -->
     <div class="tuning-card">
       <div class="tuning-label">Opbouwcurve — <span id="curve-label">Gebalanceerd</span></div>
@@ -714,6 +723,7 @@ input[type=range] {
       <div class="tuning-label">Balans herstel ↔ presteren <span id="conflict-label">Gebalanceerd</span></div>
       <input type="range" min="1" max="5" value="3" id="conflict-slider" oninput="updatePerfHerstel(this.value)">
       <div class="range-labels"><span>Puur herstel</span><span>Puur presteren</span></div>
+    </div>
     </div>
 
     <!-- PREDICTION (alleen presteren) -->

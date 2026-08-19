@@ -212,7 +212,16 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <button class="trk-close" onclick="trkClose()">✕</button>
   </div>
 
-  <div class="trk-state visible" id="trk-active">
+  <div class="trk-state visible" id="trk-idle">
+    <div class="trk-info">
+      <span class="trk-gps-dot" id="trk-idle-gps-dot"></span>
+      <strong id="trk-idle-name">—</strong><br>
+      <span id="trk-idle-target-label" style="font-size:12px;color:var(--accent);"></span>
+    </div>
+    <button class="trk-btn trk-btn-primary" onclick="trkBeginRun()">▶ Start training</button>
+  </div>
+
+  <div class="trk-state" id="trk-active">
     <div class="trk-info">
       <span class="trk-gps-dot" id="trk-gps-dot"></span>
       <strong id="trk-name">—</strong><br>
@@ -778,17 +787,25 @@ function startTracking(w, si) {
   const session = schema.weeks.find(wk => wk.weekNum === w).sessions[si];
   trkWeek = w; trkSi = si;
   const targetKm = parseKmTarget(session.volume);
+  const label = session.name + (session.day ? ' · ' + session.day : '');
+  const targetLabel = targetKm ? `Doel: ${targetKm} km` : '';
 
-  document.getElementById('trk-name').textContent = session.name + (session.day ? ' · ' + session.day : '');
-  document.getElementById('trk-target-label').textContent = targetKm ? `Doel: ${targetKm} km` : '';
-  document.getElementById('trk-gps-dot').classList.remove('locked');
+  document.getElementById('trk-idle-name').textContent = label;
+  document.getElementById('trk-idle-target-label').textContent = targetLabel;
+  document.getElementById('trk-name').textContent = label;
+  document.getElementById('trk-target-label').textContent = targetLabel;
   document.getElementById('trk-dist').textContent = '0.00';
   document.getElementById('trk-time').textContent = '00:00';
   document.getElementById('trk-pace').textContent = '--:--';
 
+  trkSetState('idle');
+  document.getElementById('tracker-overlay').classList.add('open');
+}
+
+function trkBeginRun() {
+  document.getElementById('trk-gps-dot').classList.remove('locked');
   trkTotalDist = 0; trkLastPos = null; trkStartTime = Date.now();
   trkSetState('active');
-  document.getElementById('tracker-overlay').classList.add('open');
 
   trkInterval = setInterval(trkUpdateTimer, 1000);
   trkWatchId = navigator.geolocation.watchPosition(
@@ -879,10 +896,11 @@ function trkSave() {
 function trkClose() {
   trkStopWatchers();
   document.getElementById('tracker-overlay').classList.remove('open');
-  trkSetState('active');
+  trkSetState('idle');
 }
 
 function trkSetState(state) {
+  document.getElementById('trk-idle').className = `trk-state${state === 'idle' ? ' visible' : ''}`;
   document.getElementById('trk-active').className = `trk-state${state === 'active' ? ' visible' : ''}`;
   document.getElementById('trk-done').className = `trk-state${state === 'done' ? ' visible' : ''}`;
 }
