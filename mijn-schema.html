@@ -1080,19 +1080,35 @@ function trkNextPhase() {
   document.getElementById('trk-lap-next-btn').style.display = 'none';
 }
 
+// Grenzen tegen GPS-ruis en een foute eerste fix (die vlak na het starten
+// vaak honderden meters mis kan zijn, vóórdat de GPS goed "vergrendeld" is).
+const GPS_MAX_ACCURACY_M = 30;   // fixes met meer onzekerheid dan dit worden genegeerd
+const GPS_MIN_MOVE_M = 5;        // kleinere sprongen zijn ruis, geen echte beweging
+const GPS_MAX_JUMP_M = 150;      // grotere sprongen tussen twee updates zijn onrealistisch (foute fix)
+
 function trkOnGPSUpdate(pos) {
+  const accuracy = pos.coords.accuracy;
+  if (accuracy != null && accuracy > GPS_MAX_ACCURACY_M) return; // onbetrouwbare fix, ook lastPos niet zetten
+
   document.getElementById('trk-gps-dot').classList.add('locked');
   if (trkLastPos) {
-    const d = haversineKm(
+    const dKm = haversineKm(
       trkLastPos.coords.latitude, trkLastPos.coords.longitude,
       pos.coords.latitude, pos.coords.longitude
     );
-    if (d > 0.003) {
-      trkTotalDist += d;
+    const dM = dKm * 1000;
+    if (dM > GPS_MIN_MOVE_M && dM < GPS_MAX_JUMP_M) {
+      trkTotalDist += dKm;
       trkLastPos = pos;
       document.querySelectorAll('.trk-dist-el').forEach(el => el.textContent = trkTotalDist.toFixed(2));
       trkUpdatePace();
+    } else if (dM >= GPS_MAX_JUMP_M) {
+      // Onrealistische sprong (waarschijnlijk een foute fix) — positie wel
+      // bijwerken zodat we niet vanaf een oud, ver punt blijven meten, maar
+      // niet meetellen als afgelegde afstand.
+      trkLastPos = pos;
     }
+    // Kleine ruis (< GPS_MIN_MOVE_M): lastPos blijft staan tot er echt beweging is.
   } else {
     trkLastPos = pos;
   }
