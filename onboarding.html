@@ -701,7 +701,7 @@ input[type=range] {
 
     <!-- TUNING: schema timing -->
     <div class="tuning-card">
-      <div class="tuning-label">Schema timing <span id="timing-label">12 weken · start morgen</span></div>
+      <div class="tuning-label">Schema timing <span id="timing-label">12 weken · start vandaag</span></div>
 
       <div class="timing-tabs">
         <div class="timing-tab active" id="ttab-duur" onclick="selectTimingType('duur')">Duur</div>
@@ -719,7 +719,7 @@ input[type=range] {
       <div id="timing-end-panel" style="display:none;margin-bottom:10px">
         <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Einddatum</div>
         <input class="form-input" type="date" id="inp-einddatum" onchange="updateTimingCalc()">
-        <div style="font-size:11px;color:var(--muted);margin-top:6px;opacity:.7">Schema start morgen. Duur wordt automatisch berekend.</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;opacity:.7">Schema start vandaag. Duur wordt automatisch berekend.</div>
       </div>
 
       <!-- Duration buttons (hidden in einddatum mode) -->
@@ -1273,9 +1273,8 @@ function updatePredCard(cfg) {
 }
 
 // ── TIMING HELPERS ──────────────────────────────────
-function tomorrowStr() {
+function todayStr() {
   const d = new Date();
-  d.setDate(d.getDate() + 1);
   return d.toISOString().slice(0, 10);
 }
 
@@ -1318,17 +1317,17 @@ function preselectDuurButtons(weeks) {
 function updateTimingCalc() {
   const type = profile.timing_type || 'duur';
   const duur = profile.tuning.duur || 12;
-  const tomorrow = tomorrowStr();
-  let startDate = tomorrow, endDate = '', weeksCalc = duur;
+  const today = todayStr();
+  let startDate = today, endDate = '', weeksCalc = duur;
 
   if (type === 'duur') {
-    const end = new Date(tomorrow + 'T12:00:00');
+    const end = new Date(today + 'T12:00:00');
     end.setDate(end.getDate() + duur * 7);
     endDate = end.toISOString().slice(0, 10);
-    profile.startdatum = tomorrow;
+    profile.startdatum = today;
   } else if (type === 'startdatum') {
     const inp = document.getElementById('inp-startdatum');
-    startDate = (inp && inp.value) ? inp.value : tomorrow;
+    startDate = (inp && inp.value) ? inp.value : today;
     const end = new Date(startDate + 'T12:00:00');
     end.setDate(end.getDate() + duur * 7);
     endDate = end.toISOString().slice(0, 10);
@@ -1337,17 +1336,17 @@ function updateTimingCalc() {
     const inp = document.getElementById('inp-einddatum');
     const endVal = inp ? inp.value : '';
     if (endVal) {
-      const diffDays = Math.round((new Date(endVal + 'T12:00:00') - new Date(tomorrow + 'T12:00:00')) / (86400000));
+      const diffDays = Math.round((new Date(endVal + 'T12:00:00') - new Date(today + 'T12:00:00')) / (86400000));
       if (diffDays < 14) {
         const calcEl2 = document.getElementById('timing-calc');
-        if (calcEl2) calcEl2.innerHTML = '<span style="color:var(--danger)">⚠ Einddatum moet minimaal 2 weken vanaf morgen zijn.</span>';
+        if (calcEl2) calcEl2.innerHTML = '<span style="color:var(--danger)">⚠ Einddatum moet minimaal 2 weken vanaf vandaag zijn.</span>';
         return;
       }
       weeksCalc = Math.max(2, Math.round(diffDays / 7));
       profile.tuning.duur = weeksCalc;
       endDate = endVal;
     }
-    profile.startdatum = tomorrow;
+    profile.startdatum = today;
     profile.einddatum  = endVal || '';
   }
 
@@ -1364,10 +1363,10 @@ function updateTimingCalc() {
 
   const lbl = document.getElementById('timing-label');
   if (lbl) {
-    if (type === 'duur') lbl.textContent = duur + ' weken · start morgen';
-    else if (type === 'startdatum' && startDate !== tomorrow) lbl.textContent = duur + ' weken · start ' + formatDateNL(startDate);
+    if (type === 'duur') lbl.textContent = duur + ' weken · start vandaag';
+    else if (type === 'startdatum' && startDate !== today) lbl.textContent = duur + ' weken · start ' + formatDateNL(startDate);
     else if (type === 'einddatum' && endDate) lbl.textContent = weeksCalc + ' weken · eindigt ' + formatDateNL(endDate);
-    else lbl.textContent = duur + ' weken · start morgen';
+    else lbl.textContent = duur + ' weken · start vandaag';
   }
   save();
 }
@@ -1577,7 +1576,7 @@ function generateSchema() {
 
   const startDateStr = (profile.timing_type === 'startdatum' && profile.startdatum)
     ? profile.startdatum
-    : tomorrowStr();
+    : todayStr();
 
   const schema = {
     title:     buildSchemaTitle(type, cfg),
