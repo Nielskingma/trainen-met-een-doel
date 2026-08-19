@@ -217,51 +217,6 @@ input[type=range] {
 .pred-key { color: var(--muted); }
 .pred-val { color: var(--accent); font-family: var(--serif); font-size: 16px; font-weight: 700; }
 .pred-warn { color: var(--warn); font-size: 11px; margin-top: 10px; line-height: 1.6; }
-
-/* ── INTAKETEST MET GPS ── */
-.btn-gps-test {
-  margin-top: 8px; width: 100%; padding: 10px 12px; border-radius: 8px;
-  border: 1px solid var(--accent); color: var(--accent); background: rgba(74,222,128,.06);
-  font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase;
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.btn-gps-test:hover { background: rgba(74,222,128,.12); }
-
-#itest-overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 300; overflow-y: auto; }
-#itest-overlay.open { display: block; }
-.itest-header { padding: 20px 20px 0; text-align: right; }
-.itest-close {
-  background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 99px;
-  width: 32px; height: 32px; font-size: 14px; cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.itest-state { display: none; }
-.itest-state.visible { display: block; }
-.itest-info {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-  margin: 12px 20px 20px; padding: 16px; font-size: 13px; color: var(--muted); line-height: 1.6;
-}
-.itest-info strong { color: var(--text); }
-.itest-gps-dot {
-  display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--warn);
-  margin-right: 6px; animation: itestPulse 1.5s infinite;
-}
-.itest-gps-dot.locked { background: var(--accent); animation: none; }
-@keyframes itestPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.8); } }
-.itest-big { text-align: center; padding: 16px 20px 32px; }
-.itest-big .val { font-family: var(--serif); font-size: 64px; font-weight: 700; color: var(--accent); line-height: 1; letter-spacing: -2px; }
-.itest-big .unit { font-size: 13px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: .1em; }
-.itest-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 0 20px 24px; }
-.itest-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
-.itest-box .val { font-family: var(--serif); font-size: 26px; font-weight: 700; color: var(--text); }
-.itest-box .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; margin-top: 4px; }
-.itest-btn {
-  display: block; width: calc(100% - 40px); margin: 0 20px 12px; padding: 18px; border-radius: 12px;
-  border: none; font-family: var(--mono); font-size: 13px; letter-spacing: .1em; text-transform: uppercase;
-  cursor: pointer; -webkit-tap-highlight-color: transparent;
-}
-.itest-btn-primary { background: var(--accent); color: #0d1117; font-weight: 500; }
-.itest-btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
-.itest-btn-muted { background: var(--surface); border: 1px solid var(--border); color: var(--muted); }
 </style>
 </head>
 <body>
@@ -536,18 +491,13 @@ input[type=range] {
       </div>
     </div>
 
-    <!-- INTAKETEST: hardlopen (optioneel) -->
+    <!-- INTAKETEST: hardlopen -->
     <div class="cond-block" id="cond-hl-intake">
       <hr class="section-divider">
-      <div class="section-heading">Intaketest hardlopen <span style="color:var(--border);font-weight:400;font-size:9px;letter-spacing:0;text-transform:none">— optioneel</span></div>
-      <div class="info-box" style="margin-bottom:14px">
-        Warm 5 minuten rustig op. Loop daarna <strong>12 minuten</strong> zo hard als je vol kunt bijhouden op een vlak parcours. Laat de app meelopen met GPS, of noteer de afgelegde afstand zelf in meters.
-      </div>
-      <div class="form-block">
-        <button type="button" class="btn-gps-test" onclick="itestOpen()">📍 Test lopen met GPS</button>
-        <label class="form-label" style="margin-top:14px">Of vul de afstand handmatig in <span class="optional">meters</span></label>
-        <input class="form-input" type="number" id="inp-intake-hl" min="100" max="5000" placeholder="bijv. 2000 m" oninput="onIntakeInput('hl', this.value)">
-        <div class="intake-feedback" id="intake-hl-fb"></div>
+      <div class="section-heading">Intaketest hardlopen</div>
+      <div class="info-box">
+        Je <strong>eerste training</strong> in dit schema is automatisch een intaketest (12 minuten, gelopen met GPS).
+        Het resultaat daarvan stelt de rest van je schema exact op jouw niveau af — hier hoef je nu niets in te vullen.
       </div>
     </div>
 
@@ -786,47 +736,6 @@ input[type=range] {
     </div>
 
     <p class="privacy-note">Jouw gegevens worden alleen lokaal opgeslagen op dit apparaat.<br>Niets wordt verstuurd of gedeeld.</p>
-  </div>
-</div>
-
-<div id="itest-overlay">
-  <div class="itest-header">
-    <button class="itest-close" onclick="itestClose()">✕</button>
-  </div>
-
-  <div class="itest-state visible" id="itest-idle">
-    <div class="itest-info">
-      <strong>Intaketest hardlopen</strong><br>
-      Warm eerst 5 minuten rustig op. Klik daarna op start — je loopt vervolgens precies 12 minuten
-      zo hard als je kunt volhouden. Na 12 minuten stopt de test vanzelf en wordt de afstand berekend.
-    </div>
-    <button class="itest-btn itest-btn-primary" onclick="itestBegin()">▶ Start 12-minutentest</button>
-  </div>
-
-  <div class="itest-state" id="itest-active">
-    <div class="itest-info">
-      <span class="itest-gps-dot" id="itest-gps-dot"></span>
-      <strong>Loop zo hard als je kunt volhouden</strong>
-    </div>
-    <div class="itest-big">
-      <div class="val" id="itest-countdown">12:00</div>
-      <div class="unit">resterend</div>
-    </div>
-    <div class="itest-grid">
-      <div class="itest-box"><div class="val" id="itest-dist">0</div><div class="lbl">Meter</div></div>
-      <div class="itest-box"><div class="val" id="itest-pace">--:--</div><div class="lbl">Tempo /km</div></div>
-    </div>
-    <button class="itest-btn itest-btn-danger" onclick="itestStop(false)">■ Test afbreken</button>
-  </div>
-
-  <div class="itest-state" id="itest-done">
-    <div class="itest-big">
-      <div style="font-size:40px;margin-bottom:8px">✓</div>
-      <div class="val" id="itest-done-dist">0</div>
-      <div class="unit">meter in 12 minuten</div>
-    </div>
-    <button class="itest-btn itest-btn-primary" onclick="itestUseResult()">Gebruik deze uitslag</button>
-    <button class="itest-btn itest-btn-muted" onclick="itestClose()">Annuleren</button>
   </div>
 </div>
 
@@ -1566,6 +1475,23 @@ function generateSchema() {
     weeks.forEach(wk => wk.sessions.forEach(s => { if (!s.sport) s.sport = sportBySchemaType[type]; }));
   }
 
+  // Hoofdsport = sport die het vaakst voorkomt (bij combo bepalend, bij één sport triviaal)
+  const sportCounts = {};
+  weeks.forEach(wk => wk.sessions.forEach(s => { if (s.sport) sportCounts[s.sport] = (sportCounts[s.sport] || 0) + 1; }));
+  let hoofdsport = null, hoofdsportCount = 0;
+  Object.entries(sportCounts).forEach(([sp, c]) => { if (c > hoofdsportCount) { hoofdsport = sp; hoofdsportCount = c; } });
+
+  // Intaketest wordt altijd de allereerste training (vervangt sessie 1) —
+  // alleen voor hardlopen: de enige sport met een GPS-getrackte testprotocol.
+  if (hoofdsport === 'hardlopen' && weeks.length && weeks[0].sessions.length) {
+    const first = weeks[0].sessions[0];
+    weeks[0].sessions[0] = {
+      day: first.day, name: 'Intaketest', type: 'intake', volume: '12 min',
+      desc: 'Warm 5 minuten rustig op. Loop daarna via "Start met GPS" precies 12 minuten zo hard als je kunt volhouden. Het resultaat wordt automatisch gebruikt om de rest van dit schema op jouw niveau af te stellen.',
+      tags: ['intake'], sport: 'hardlopen', isIntake: true
+    };
+  }
+
   // HR zone injection in session descriptions
   const hrZones = getHRZones(profile);
   if (hrZones) {
@@ -1578,17 +1504,44 @@ function generateSchema() {
     ? profile.startdatum
     : todayStr();
 
+  // Rolling horizon: alleen de eerstkomende weken krijgen concrete inhoud.
+  // Bij bijvullen (mijn-schema.html) staat de gewenste nieuwe horizon in
+  // tmg_extend_to_week; anders behoudt een herberekening de eerder al
+  // ontgrendelde horizon (uit tmg_prev_schema); bij een gloednieuw schema
+  // is dat standaard 2 weken.
+  const extendTo = parseInt(localStorage.getItem('tmg_extend_to_week') || '0');
+  localStorage.removeItem('tmg_extend_to_week');
+  let plannedThroughWeek = 2;
+  const previousRaw = localStorage.getItem('tmg_generated_schema');
+  if (previousRaw) {
+    try {
+      const prev = JSON.parse(previousRaw);
+      if (prev.plannedThroughWeek) plannedThroughWeek = prev.plannedThroughWeek;
+    } catch (e) {}
+  }
+  if (extendTo > plannedThroughWeek) plannedThroughWeek = extendTo;
+  plannedThroughWeek = Math.min(plannedThroughWeek, weeks.length);
+
+  weeks.forEach(wk => {
+    if (wk.weekNum <= plannedThroughWeek) {
+      wk.planned = true;
+    } else {
+      wk.planned = false;
+      wk.sessions = null;
+    }
+  });
+
   const schema = {
     title:     buildSchemaTitle(type, cfg),
     subtitle:  buildSchemaSubtitle(cfg),
     type,
     profile:   JSON.parse(JSON.stringify(profile)),
     weeks,
+    plannedThroughWeek,
     generated: new Date().toISOString(),
     startDate: new Date(startDateStr + 'T12:00:00').toISOString()
   };
-  const previous = localStorage.getItem('tmg_generated_schema');
-  if (previous) localStorage.setItem('tmg_prev_schema', previous);
+  if (previousRaw) localStorage.setItem('tmg_prev_schema', previousRaw);
   localStorage.setItem('tmg_generated_schema', JSON.stringify(schema));
   window.location.href = 'mijn-schema.html';
 }
@@ -2361,104 +2314,6 @@ function restoreUI() {
   checkStep3();
 }
 
-// ── INTAKETEST MET GPS (12-minutentest hardlopen) ────
-let itestWatchId = null, itestTimer = null, itestStartTime = null;
-let itestTotalDist = 0, itestLastPos = null, itestRemaining = 720, itestWakeLock = null;
-
-function itestOpen() {
-  if (!navigator.geolocation) { alert('GPS niet beschikbaar op dit apparaat'); return; }
-  itestSetState('idle');
-  document.getElementById('itest-overlay').classList.add('open');
-}
-
-function itestBegin() {
-  itestTotalDist = 0; itestLastPos = null; itestStartTime = Date.now(); itestRemaining = 720;
-  document.getElementById('itest-countdown').textContent = '12:00';
-  document.getElementById('itest-dist').textContent = '0';
-  document.getElementById('itest-pace').textContent = '--:--';
-  document.getElementById('itest-gps-dot').classList.remove('locked');
-  itestSetState('active');
-
-  itestTimer = setInterval(itestTick, 1000);
-  itestWatchId = navigator.geolocation.watchPosition(
-    itestOnGPS,
-    err => console.warn('GPS error:', err),
-    { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
-  );
-  if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => itestWakeLock = l).catch(() => {});
-}
-
-function itestOnGPS(pos) {
-  document.getElementById('itest-gps-dot').classList.add('locked');
-  if (itestLastPos) {
-    const d = itestHaversineKm(
-      itestLastPos.coords.latitude, itestLastPos.coords.longitude,
-      pos.coords.latitude, pos.coords.longitude
-    );
-    if (d > 0.003) {
-      itestTotalDist += d;
-      itestLastPos = pos;
-      document.getElementById('itest-dist').textContent = Math.round(itestTotalDist * 1000);
-      itestUpdatePace();
-    }
-  } else {
-    itestLastPos = pos;
-  }
-}
-
-function itestUpdatePace() {
-  const elapsedMin = (Date.now() - itestStartTime) / 1000 / 60;
-  if (itestTotalDist > 0.05) {
-    const paceMin = elapsedMin / itestTotalDist;
-    const m = Math.floor(paceMin), s = Math.round((paceMin - m) * 60);
-    document.getElementById('itest-pace').textContent = `${m}:${String(s).padStart(2, '0')}`;
-  }
-}
-
-function itestTick() {
-  itestRemaining--;
-  if (itestRemaining <= 0) { itestStop(true); return; }
-  const m = Math.floor(itestRemaining / 60), s = itestRemaining % 60;
-  document.getElementById('itest-countdown').textContent = `${m}:${String(s).padStart(2, '0')}`;
-}
-
-function itestHaversineKm(lat1, lon1, lat2, lon2) {
-  const R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
-  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-function itestStopWatchers() {
-  if (itestTimer) { clearInterval(itestTimer); itestTimer = null; }
-  if (itestWatchId !== null) { navigator.geolocation.clearWatch(itestWatchId); itestWatchId = null; }
-  if (itestWakeLock) { itestWakeLock.release().catch(() => {}); itestWakeLock = null; }
-}
-
-function itestStop(completed) {
-  itestStopWatchers();
-  if (!completed) { itestClose(); return; }
-  document.getElementById('itest-done-dist').textContent = Math.round(itestTotalDist * 1000);
-  itestSetState('done');
-}
-
-function itestUseResult() {
-  const meters = Math.round(itestTotalDist * 1000);
-  document.getElementById('inp-intake-hl').value = meters;
-  onIntakeInput('hl', meters);
-  document.getElementById('itest-overlay').classList.remove('open');
-}
-
-function itestClose() {
-  itestStopWatchers();
-  document.getElementById('itest-overlay').classList.remove('open');
-  itestSetState('idle');
-}
-
-function itestSetState(state) {
-  document.getElementById('itest-idle').className = `itest-state${state === 'idle' ? ' visible' : ''}`;
-  document.getElementById('itest-active').className = `itest-state${state === 'active' ? ' visible' : ''}`;
-  document.getElementById('itest-done').className = `itest-state${state === 'done' ? ' visible' : ''}`;
-}
 </script>
 </body>
 </html>

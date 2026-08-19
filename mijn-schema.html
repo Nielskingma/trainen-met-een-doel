@@ -63,6 +63,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .week-card.done{opacity:.55;}
 .week-card.recovery{border-style:dashed;}
 .week-card.taper{border-color:var(--warn);}
+.week-card.placeholder{opacity:.5;}
+.week-card.placeholder .week-header{cursor:default;}
 
 .week-header{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;background:var(--surface);cursor:pointer;-webkit-tap-highlight-color:transparent;gap:10px;}
 .week-left{flex:1;min-width:0;}
@@ -306,6 +308,7 @@ function reconcileProgressAfterRegen(newSchema) {
     const prevWk = prevSchema.weeks[wi];
     const newWk  = newSchema.weeks[wi];
     if (!prevWk || !newWk) continue;
+    if (!prevWk.sessions || !newWk.sessions) continue; // (nog) niet-geplande week — niets te vergelijken
     const w = newWk.weekNum;
     const sameStructure = prevWk.sessions.length === newWk.sessions.length;
     if (sameStructure) continue;
@@ -318,6 +321,22 @@ function reconcileProgressAfterRegen(newSchema) {
   }
 }
 
+// ── ROLLING HORIZON: eerstvolgende weken automatisch bijvullen ──
+// Er staan altijd minstens de huidige + 1 week concreet klaar. Ligt de
+// rand van wat al gepland is te dichtbij, dan wordt er stil (zonder
+// melding) bijgegenereerd via hetzelfde regen-mechanisme dat ook de
+// curve-aanpassingen gebruikt — inclusief de voortgangsbewaking daarvan.
+function ensureConcreteWeeks(schema) {
+  const curWeek = getCurrentWeek(schema);
+  const desiredThrough = Math.min(schema.weeks.length, curWeek + 1);
+  if ((schema.plannedThroughWeek || 0) < desiredThrough) {
+    localStorage.setItem('tmg_extend_to_week', String(desiredThrough));
+    regenFromProfile(schema.profile, schema);
+    return true;
+  }
+  return false;
+}
+
 // ── LOAD SCHEMA ──────────────────────────────────────
 const raw = localStorage.getItem('tmg_generated_schema');
 if (!raw) {
@@ -326,8 +345,10 @@ if (!raw) {
 } else {
   const schema = JSON.parse(raw);
   reconcileProgressAfterRegen(schema);
-  renderSchema(schema);
-  renderSessiesAdjust(schema);
+  if (!ensureConcreteWeeks(schema)) {
+    renderSchema(schema);
+    renderSessiesAdjust(schema);
+  }
 }
 
 // ── SESSIES ADJUST ────────────────────────────────────
@@ -410,7 +431,7 @@ function getWeekRPE(wi) {
   const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
   if (!schema) return null;
   const wk = schema.weeks[wi];
-  if (!wk) return null;
+  if (!wk || !wk.sessions) return null;
   const w = wk.weekNum;
   const vals = wk.sessions.map((_, si) => {
     const v = localStorage.getItem(rpeKey(w, si));
@@ -506,7 +527,7 @@ function toggleDone(w, s, el) {
 function countDone(schema) {
   let done = 0, total = 0;
   schema.weeks.forEach((wk, wi) => {
-    wk.sessions.forEach((_, si) => { total++; if (isDone(wi+1, si)) done++; });
+    (wk.sessions || []).forEach((_, si) => { total++; if (isDone(wi+1, si)) done++; });
   });
   return { done, total };
 }
@@ -543,11 +564,11 @@ function renderSchema(schema) {
   const curWeek = getCurrentWeek(schema);
   const { done, total } = countDone(schema);
   const pct = total > 0 ? Math.round(done / total * 100) : 0;
-  const totalSessions = schema.weeks.reduce((s,w) => s + w.sessions.length, 0);
+  const totalSessions = schema.weeks.reduce((s,w) => s + (w.sessions || []).length, 0);
   const p = schema.profile || {};
 
   // Build volume stat
-  const runWeeks = schema.weeks.filter(w => w.sessions.some(s => s.volume && s.volume.includes('km')));
+  const runWeeks = schema.weeks.filter(w => w.sessions && w.sessions.some(s => s.volume && s.volume.includes('km')));
   const volumes = runWeeks.map(w => w.sessions.reduce((sum, s) => {
     const m = s.volume && s.volume.match(/^(\d+)/);
     return sum + (m ? parseInt(m[1]) : 0);
@@ -603,7 +624,7 @@ function renderSchema(schema) {
 
   // Restore RPE selections on already-completed sessions
   schema.weeks.forEach(wk => {
-    wk.sessions.forEach((_, si) => {
+    (wk.sessions || []).forEach((_, si) => {
       const w = wk.weekNum;
       const rpe = localStorage.getItem(rpeKey(w, si));
       if (!rpe || !isDone(w, si)) return;
@@ -636,6 +657,23 @@ function renderWeek(wk, wi, curWeek) {
   ].filter(Boolean).join(' ');
 
   const badge = isCurrent ? 'Deze week' : wk.weekType === 'recovery' ? 'Herstelweek' : wk.weekType === 'taper' ? 'Tapering' : 'Week ' + w;
+
+  if (wk.planned === false) {
+    const richting = wk.weekType === 'recovery' ? 'Herstelweek' : wk.weekType === 'taper' ? 'Afbouwweek' : 'Opbouwweek';
+    return `
+    <div class="week-card placeholder" id="week-${w}">
+      <div class="week-header">
+        <div class="week-left">
+          <div class="week-meta">Week ${w}</div>
+          <div class="week-title">${richting}</div>
+        </div>
+        <div class="week-right">
+          <span class="week-vol">${wk.weekVolume || ''}</span>
+          <span class="week-badge">⏳ Nog te plannen</span>
+        </div>
+      </div>
+    </div>`;
+  }
 
   const sessionsHtml = wk.sessions.map((s, si) => {
     const done = isDone(w, si);
@@ -699,7 +737,7 @@ function renderOverview(schema, p) {
     const peakWkVol = runWeekVols.length ? Math.max(...runWeekVols) : 0;
     const firstWkVol = runWeekVols[0] || 0;
     const longRun = schema.weeks.reduce((max, wk) => {
-      const lr = wk.sessions.find(s => s.type === 'long');
+      const lr = (wk.sessions || []).find(s => s.type === 'long');
       if (!lr) return max;
       const m = lr.volume && lr.volume.match(/^(\d+)/);
       return m ? Math.max(max, parseInt(m[1])) : max;
@@ -1042,8 +1080,25 @@ function trkSave() {
   } : null;
   localStorage.setItem(trkKey(trkWeek, trkSi), JSON.stringify({ dist, time, pace, hrAvg, laps }));
   localStorage.setItem(doneKey(trkWeek, trkSi), '1');
-  document.getElementById('tracker-overlay').classList.remove('open');
+
   const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
+  const week = schema && schema.weeks.find(wk => wk.weekNum === trkWeek);
+  const session = week && week.sessions && week.sessions[trkSi];
+
+  if (session && session.isIntake) {
+    // Intaketest voltooid — echte uitslag vervangt de schatting, en de rest
+    // van het schema wordt daarop herberekend (zelfde regen-mechanisme,
+    // behoudt de al ontgrendelde horizon en de voortgang van vaste weken).
+    const p = schema.profile;
+    p.intaketest = p.intaketest || {};
+    p.intaketest.hl = Math.round(dist * 1000);
+    localStorage.setItem('tmg_profile', JSON.stringify(p));
+    document.getElementById('tracker-overlay').classList.remove('open');
+    regenFromProfile(p, schema);
+    return;
+  }
+
+  document.getElementById('tracker-overlay').classList.remove('open');
   if (schema) renderSchema(schema);
 }
 
