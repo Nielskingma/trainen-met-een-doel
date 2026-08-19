@@ -976,7 +976,10 @@ function startTracking(w, si) {
 
 function openFreeStart() {
   if (!navigator.geolocation) { alert('GPS niet beschikbaar op dit apparaat'); return; }
-  document.querySelectorAll('#trk-sportpick .sportpick-btn').forEach(b => b.classList.remove('selected'));
+  document.querySelectorAll('#trk-sportpick .sportpick-btn').forEach(b => {
+    b.classList.remove('selected');
+    b.style.display = 'flex';
+  });
   document.getElementById('free-start-section').style.display = 'none';
   resetFreeStartButtons();
   trkFreeSport = null;
@@ -989,7 +992,11 @@ function openFreeStart() {
 // hartslagkoppeling) i.p.v. naar een apart bevestigingsscherm te gaan.
 function selectFreeSport(sport, label) {
   trkFreeSport = sport;
-  document.querySelectorAll('#trk-sportpick .sportpick-btn').forEach(b => b.classList.toggle('selected', b.dataset.sport === sport));
+  document.querySelectorAll('#trk-sportpick .sportpick-btn').forEach(b => {
+    const isChosen = b.dataset.sport === sport;
+    b.classList.toggle('selected', isChosen);
+    b.style.display = isChosen ? 'flex' : 'none';
+  });
   document.getElementById('free-start-label').textContent = label;
   document.getElementById('free-start-section').style.display = 'block';
   updateHrUI();
@@ -1013,6 +1020,7 @@ function beginFreeTraining() {
   document.getElementById('free-lock-btn').style.display = 'block';
   document.getElementById('free-stop-btn').style.display = 'block';
   trkBeginRun();
+  trkLockScreen();
 }
 
 function showIdleScreen(label, targetLabel) {
