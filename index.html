@@ -120,6 +120,31 @@
 
   <div class="cards">
 
+    <a class="app-card" href="mijn-schema.html" id="card-my-schema" style="display:none;">
+      <div class="card-top">
+        <div class="card-icon">📋</div>
+        <span class="card-badge">Verder gaan</span>
+      </div>
+      <div class="card-title" id="my-schema-title">Mijn schema</div>
+      <div class="card-desc" id="my-schema-desc">Ga verder met je huidige trainingsschema.</div>
+      <div class="card-arrow">Openen →</div>
+    </a>
+
+    <a class="app-card" href="mijn-schema.html?free=1">
+      <div class="card-top">
+        <div class="card-icon">📍</div>
+        <span class="card-badge" style="background:rgba(134,239,172,0.1);color:var(--accent2);border-color:rgba(134,239,172,0.3)">Direct starten</span>
+      </div>
+      <div class="card-title">Start training</div>
+      <div class="card-desc">Kies een sport en start meteen met live GPS — los van een gepland schema.</div>
+      <div class="card-tags">
+        <span class="tag">🏃 Hardlopen</span>
+        <span class="tag">🚴 Fietsen</span>
+        <span class="tag">🥾 Wandelen</span>
+      </div>
+      <div class="card-arrow">Training starten →</div>
+    </a>
+
     <a class="app-card" href="onboarding.html" style="border-color: var(--accent); background: rgba(74,222,128,0.04);">
       <div class="card-top">
         <div class="card-icon">✨</div>
@@ -166,6 +191,16 @@ fetch('https://api.github.com/repos/Nielskingma/trainen-met-een-doel/commits?per
     document.getElementById('update-label').textContent = 'Update: ' + label;
   })
   .catch(() => { document.getElementById('update-label').textContent = 'Update: onbekend'; });
+
+try {
+  const raw = localStorage.getItem('tmg_generated_schema');
+  if (raw) {
+    const schema = JSON.parse(raw);
+    document.getElementById('my-schema-title').textContent = schema.title || 'Mijn schema';
+    document.getElementById('my-schema-desc').textContent = schema.subtitle || 'Ga verder met je huidige trainingsschema.';
+    document.getElementById('card-my-schema').style.display = 'block';
+  }
+} catch (e) {}
 
 function wipeData() {
   if (confirm('Alle opgeslagen trainingsdata wissen?\nDit kan niet ongedaan worden gemaakt.')) {

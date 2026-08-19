@@ -203,9 +203,31 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .trk-lock-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:14px;padding:18px 32px;border-radius:12px;cursor:pointer;user-select:none;-webkit-user-select:none;position:relative;overflow:hidden;transition:border-color .2s;}
 .trk-lock-btn::after{content:'';position:absolute;left:0;top:0;bottom:0;width:0%;background:rgba(74,222,128,.15);transition:none;}
 .trk-lock-btn.filling::after{width:100%;transition:width 3s linear;}
+
+.fab-start{
+  position:fixed; right:20px; bottom:24px; z-index:150;
+  display:flex; align-items:center; gap:8px;
+  background:var(--accent); color:#0d1117; border:none; border-radius:99px;
+  padding:14px 20px; font-family:var(--mono); font-size:12px; letter-spacing:.06em; text-transform:uppercase;
+  font-weight:500; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,.35);
+  -webkit-tap-highlight-color:transparent;
+}
+.fab-start:hover{background:var(--accent2);}
+
+.sportpick-row{display:flex; flex-direction:column; gap:10px; margin:0 20px 20px;}
+.sportpick-btn{
+  display:flex; align-items:center; gap:12px; text-align:left;
+  background:var(--surface); border:1px solid var(--border); border-radius:12px;
+  padding:16px; font-family:var(--mono); font-size:14px; color:var(--text); cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.sportpick-btn:hover{border-color:var(--accent);}
+.sportpick-icon{font-size:22px;}
 </style>
 </head>
 <body>
+<button class="fab-start" onclick="openFreeStart()">▶ Start training</button>
+
 <div class="page" id="page">
   <div id="empty-state" class="empty-state" style="display:none;">
     <h2>Nog geen schema</h2>
@@ -222,7 +244,19 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <button class="trk-close" onclick="trkClose()">✕</button>
   </div>
 
-  <div class="trk-state visible" id="trk-idle">
+  <div class="trk-state visible" id="trk-sportpick">
+    <div class="trk-info">
+      <strong>Kies een sport</strong><br>
+      <span style="font-size:12px">Los van een gepland schema — direct starten met live GPS.</span>
+    </div>
+    <div class="sportpick-row">
+      <button class="sportpick-btn" onclick="pickFreeSport('hardlopen','🏃 Hardlopen')"><span class="sportpick-icon">🏃</span> Hardlopen</button>
+      <button class="sportpick-btn" onclick="pickFreeSport('fietsen','🚴 Fietsen')"><span class="sportpick-icon">🚴</span> Fietsen</button>
+      <button class="sportpick-btn" onclick="pickFreeSport('wandelen','🥾 Wandelen')"><span class="sportpick-icon">🥾</span> Wandelen</button>
+    </div>
+  </div>
+
+  <div class="trk-state" id="trk-idle">
     <div class="trk-info">
       <span class="trk-gps-dot" id="trk-idle-gps-dot"></span>
       <strong id="trk-idle-name">—</strong><br>
@@ -268,7 +302,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="trk-box" id="trk-done-hr-box" style="display:none"><div class="val" id="trk-done-hr">--</div><div class="lbl">Gem. hartslag</div></div>
     </div>
     <div id="trk-done-laps" style="display:none"></div>
-    <button class="trk-btn trk-btn-primary" onclick="trkSave()">💾 Opslaan &amp; afvinken</button>
+    <button class="trk-btn trk-btn-primary" onclick="trkSave()" id="trk-save-btn">💾 Opslaan &amp; afvinken</button>
     <button class="trk-btn trk-btn-muted" onclick="trkClose()">Sluiten zonder opslaan</button>
   </div>
 </div>
@@ -349,6 +383,11 @@ if (!raw) {
     renderSchema(schema);
     renderSessiesAdjust(schema);
   }
+}
+
+// Vanaf index.html's "Start training"-kaart (?free=1) direct de sportkeuze openen
+if (new URLSearchParams(window.location.search).get('free') === '1') {
+  openFreeStart();
 }
 
 // ── SESSIES ADJUST ────────────────────────────────────
@@ -828,6 +867,7 @@ function resetSchema() {
 let trkWatchId = null, trkInterval = null, trkStartTime = null, trkTotalDist = 0, trkLastPos = null;
 let trkWeek = null, trkSi = null, trkWakeLock = null, trkUnlockTimer = null;
 let trkWarmupMin = null, trkPhase = 'main', trkLapSplit = null, trkElapsedAtStop = 0;
+let trkFreeSport = null;
 
 // ── HARTSLAG (Bluetooth-borstband of horloge met broadcast-app) ──
 let hrDevice = null, hrReadings = [];
@@ -903,13 +943,32 @@ function startTracking(w, si) {
   if (!navigator.geolocation) { alert('GPS niet beschikbaar op dit apparaat'); return; }
   const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
   const session = schema.weeks.find(wk => wk.weekNum === w).sessions[si];
-  trkWeek = w; trkSi = si;
+  trkWeek = w; trkSi = si; trkFreeSport = null;
   trkWarmupMin = parseWarmupMin(session);
   const targetKm = parseKmTarget(session.volume);
   const label = session.name + (session.day ? ' · ' + session.day : '');
   let targetLabel = targetKm ? `Doel: ${targetKm} km` : '';
   if (trkWarmupMin) targetLabel += (targetLabel ? ' · ' : '') + `eerste ${trkWarmupMin} min warming-up (aparte lap)`;
 
+  showIdleScreen(label, targetLabel);
+  trkSetState('idle');
+  document.getElementById('tracker-overlay').classList.add('open');
+}
+
+function openFreeStart() {
+  if (!navigator.geolocation) { alert('GPS niet beschikbaar op dit apparaat'); return; }
+  trkSetState('sportpick');
+  document.getElementById('tracker-overlay').classList.add('open');
+}
+
+function pickFreeSport(sport, label) {
+  trkWeek = null; trkSi = null; trkFreeSport = sport;
+  trkWarmupMin = null;
+  showIdleScreen(label, '');
+  trkSetState('idle');
+}
+
+function showIdleScreen(label, targetLabel) {
   document.getElementById('trk-idle-name').textContent = label;
   document.getElementById('trk-idle-target-label').textContent = targetLabel;
   document.getElementById('trk-name').textContent = label;
@@ -922,9 +981,6 @@ function startTracking(w, si) {
   if (hrSupported() && !hrDevice) hrBtn.style.display = 'block';
   else hrBtn.style.display = 'none';
   document.getElementById('hr-status').textContent = hrDevice ? `❤️ ${hrDevice.name || 'sensor'} verbonden` : '';
-
-  trkSetState('idle');
-  document.getElementById('tracker-overlay').classList.add('open');
 }
 
 function trkBeginRun() {
@@ -1066,6 +1122,8 @@ function trkStop() {
     lapsBox.style.display = 'none';
   }
 
+  document.getElementById('trk-save-btn').textContent = trkWeek === null ? '💾 Opslaan in logboek' : '💾 Opslaan & afvinken';
+
   trkSetState('done');
 }
 
@@ -1078,6 +1136,16 @@ function trkSave() {
     warmup: { dist: +trkLapSplit.dist.toFixed(2), time: trkFormatTime(trkLapSplit.time) },
     main: { dist: +(trkTotalDist - trkLapSplit.dist).toFixed(2), time: trkFormatTime(trkElapsedAtStop - trkLapSplit.time) }
   } : null;
+
+  if (trkWeek === null) {
+    // Vrije training, niet aan een schema-sessie gekoppeld — apart loggen.
+    const freeRuns = JSON.parse(localStorage.getItem('tmg_free_runs') || '[]');
+    freeRuns.unshift({ sport: trkFreeSport, dist, time, pace, hrAvg, laps, date: new Date().toISOString() });
+    localStorage.setItem('tmg_free_runs', JSON.stringify(freeRuns));
+    document.getElementById('tracker-overlay').classList.remove('open');
+    return;
+  }
+
   localStorage.setItem(trkKey(trkWeek, trkSi), JSON.stringify({ dist, time, pace, hrAvg, laps }));
   localStorage.setItem(doneKey(trkWeek, trkSi), '1');
 
@@ -1105,10 +1173,11 @@ function trkSave() {
 function trkClose() {
   trkStopWatchers();
   document.getElementById('tracker-overlay').classList.remove('open');
-  trkSetState('idle');
+  trkSetState('sportpick');
 }
 
 function trkSetState(state) {
+  document.getElementById('trk-sportpick').className = `trk-state${state === 'sportpick' ? ' visible' : ''}`;
   document.getElementById('trk-idle').className = `trk-state${state === 'idle' ? ' visible' : ''}`;
   document.getElementById('trk-active').className = `trk-state${state === 'active' ? ' visible' : ''}`;
   document.getElementById('trk-done').className = `trk-state${state === 'done' ? ' visible' : ''}`;
