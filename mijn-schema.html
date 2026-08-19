@@ -188,6 +188,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .trk-box .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:4px;}
 .trk-btn{display:block;width:calc(100% - 40px);margin:0 20px 12px;padding:18px;border-radius:12px;border:none;font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 .trk-btn-primary{background:var(--accent);color:#0d1117;font-weight:500;}
+.trk-btn-primary:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;}
+.gps-search-status{text-align:center;font-size:11px;color:var(--muted);margin:-4px 0 12px;}
 .trk-btn-danger{background:transparent;border:1px solid var(--danger);color:var(--danger);}
 .trk-btn-muted{background:var(--surface);border:1px solid var(--border);color:var(--muted);}
 .trk-btn-lock{background:transparent;border:1px solid var(--warn);color:var(--warn);}
@@ -269,7 +271,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <div class="trk-box"><div class="val trk-hr-el">--</div><div class="lbl">Hartslag</div></div>
       </div>
 
-      <button class="trk-btn trk-btn-primary" id="free-start-btn" onclick="beginFreeTraining()">▶ <span id="free-start-label">Start training</span></button>
+      <div class="gps-search-status"></div>
+      <button class="trk-btn trk-btn-primary trk-start-btn-gated" id="free-start-btn" onclick="beginFreeTraining()" disabled>▶ <span id="free-start-label">Start training</span></button>
       <button class="trk-btn trk-btn-lock" id="free-lock-btn" onclick="trkLockScreen()" style="display:none">🔒 Scherm vergrendelen</button>
       <button class="trk-btn trk-btn-danger" id="free-stop-btn" onclick="trkStop()" style="display:none">■ Stop training</button>
     </div>
@@ -299,7 +302,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="trk-box"><div class="val trk-hr-el" id="trk-hr">--</div><div class="lbl">Hartslag</div></div>
     </div>
 
-    <button class="trk-btn trk-btn-primary" id="sess-start-btn" onclick="beginSessionTraining()">▶ Start training</button>
+    <div class="gps-search-status"></div>
+    <button class="trk-btn trk-btn-primary trk-start-btn-gated" id="sess-start-btn" onclick="beginSessionTraining()" disabled>▶ Start training</button>
     <button class="trk-btn trk-btn-lock" id="sess-lock-btn" onclick="trkLockScreen()" style="display:none">🔒 Scherm vergrendelen</button>
     <button class="trk-btn trk-btn-danger" id="sess-stop-btn" onclick="trkStop()" style="display:none">■ Stop training</button>
   </div>
@@ -980,6 +984,7 @@ function openFreeStart() {
   trkFreeSport = null;
   trkSetState('sportpick');
   document.getElementById('tracker-overlay').classList.add('open');
+  trkStartGpsSearch(); // begint al vast te zoeken terwijl je nog een sport kiest
 }
 
 // Kiezen is los van starten: sport selecteren toont de start-sectie op
@@ -1031,6 +1036,7 @@ function showIdleScreen(label, targetLabel, desc) {
   document.getElementById('sess-lock-btn').style.display = 'none';
   document.getElementById('sess-stop-btn').style.display = 'none';
   updateHrUI();
+  trkStartGpsSearch();
 }
 
 // Blijft op hetzelfde scherm — zelfde patroon als beginFreeTraining().
@@ -1043,8 +1049,11 @@ function beginSessionTraining() {
 }
 
 function trkBeginRun() {
-  document.getElementById('trk-gps-dot').classList.remove('locked');
-  trkTotalDist = 0; trkLastPos = null; trkStartTime = Date.now();
+  // trkLastPos wordt bewust NIET gereset: dat is de betrouwbare positie die
+  // tijdens het zoeken (trkStartGpsSearch) al is vastgelegd, en dient nu als
+  // ankerpunt voor de eerste afstandsmeting — geen nieuwe "koude" GPS-start.
+  trkStopGpsSearch();
+  trkTotalDist = 0; trkStartTime = Date.now();
   trkPhase = trkWarmupMin ? 'warmup' : 'main';
   trkLapSplit = null;
   hrReadings = [];
@@ -1085,6 +1094,52 @@ function trkNextPhase() {
 const GPS_MAX_ACCURACY_M = 30;   // fixes met meer onzekerheid dan dit worden genegeerd
 const GPS_MIN_MOVE_M = 5;        // kleinere sprongen zijn ruis, geen echte beweging
 const GPS_MAX_JUMP_M = 150;      // grotere sprongen tussen twee updates zijn onrealistisch (foute fix)
+const GPS_SEARCH_RELAX_MS = 20000; // als zoeken zo lang duurt, versoepel de eis (blijft niet eeuwig vastzitten)
+
+let trkGpsReady = false, trkSearchWatchId = null, trkSearchRelaxTimer = null, trkGpsSearchThreshold = GPS_MAX_ACCURACY_M;
+
+// Begint al met zoeken zodra het trainingsscherm opent (vóór er op start
+// gedrukt wordt), zodat een betrouwbare positie er al staat tegen de tijd
+// dat de training echt begint — voorkomt dat een slechte "koude" eerste
+// fix als beginpunt gebruikt wordt.
+function trkStartGpsSearch() {
+  trkGpsReady = false;
+  trkLastPos = null;
+  trkGpsSearchThreshold = GPS_MAX_ACCURACY_M;
+  document.getElementById('trk-gps-dot').classList.remove('locked');
+  document.querySelectorAll('.gps-search-status').forEach(el => el.textContent = '📡 GPS zoeken…');
+  document.querySelectorAll('.trk-start-btn-gated').forEach(btn => btn.disabled = true);
+
+  trkStopGpsSearch();
+  trkSearchWatchId = navigator.geolocation.watchPosition(
+    trkOnGpsSearchUpdate,
+    err => console.warn('GPS zoeken mislukt:', err),
+    { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 }
+  );
+  trkSearchRelaxTimer = setTimeout(() => {
+    if (!trkGpsReady) trkGpsSearchThreshold = 100; // duurt te lang -> ruimere marge toestaan
+  }, GPS_SEARCH_RELAX_MS);
+}
+
+function trkOnGpsSearchUpdate(pos) {
+  if (trkGpsReady) return;
+  const accuracy = pos.coords.accuracy;
+  if (accuracy != null && accuracy > trkGpsSearchThreshold) {
+    document.querySelectorAll('.gps-search-status').forEach(el => el.textContent = `📡 GPS zoeken… (${Math.round(accuracy)} m)`);
+    return;
+  }
+  trkGpsReady = true;
+  trkLastPos = pos;
+  clearTimeout(trkSearchRelaxTimer);
+  document.getElementById('trk-gps-dot').classList.add('locked');
+  document.querySelectorAll('.gps-search-status').forEach(el => el.textContent = '✓ GPS gevonden');
+  document.querySelectorAll('.trk-start-btn-gated').forEach(btn => btn.disabled = false);
+}
+
+function trkStopGpsSearch() {
+  if (trkSearchWatchId !== null) { navigator.geolocation.clearWatch(trkSearchWatchId); trkSearchWatchId = null; }
+  clearTimeout(trkSearchRelaxTimer);
+}
 
 function trkOnGPSUpdate(pos) {
   const accuracy = pos.coords.accuracy;
@@ -1246,6 +1301,7 @@ function trkSave() {
 
 function trkClose() {
   trkStopWatchers();
+  trkStopGpsSearch();
   document.getElementById('tracker-overlay').classList.remove('open');
   trkSetState('sportpick');
 }
