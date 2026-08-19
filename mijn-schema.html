@@ -173,6 +173,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .trk-big .val{font-family:var(--serif);font-size:72px;font-weight:700;color:var(--accent);line-height:1;letter-spacing:-2px;}
 .trk-big .unit{font-size:14px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.1em;}
 .trk-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 20px 24px;}
+.trk-grid-3{grid-template-columns:1fr 1fr 1fr;}
 .trk-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
 .trk-box .val{font-family:var(--serif);font-size:28px;font-weight:700;color:var(--text);}
 .trk-box .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:4px;}
@@ -218,6 +219,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <strong id="trk-idle-name">—</strong><br>
       <span id="trk-idle-target-label" style="font-size:12px;color:var(--accent);"></span>
     </div>
+    <button class="trk-btn trk-btn-lock" id="hr-connect-btn" onclick="hrConnect()" style="display:none">❤️ Koppel hartslagsensor</button>
+    <div id="hr-status" style="text-align:center;font-size:11px;color:var(--muted);margin:-4px 0 12px;"></div>
     <button class="trk-btn trk-btn-primary" onclick="trkBeginRun()">▶ Start training</button>
   </div>
 
@@ -231,9 +234,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="val" id="trk-dist">0.00</div>
       <div class="unit">kilometer</div>
     </div>
-    <div class="trk-grid">
+    <div class="trk-grid trk-grid-3">
       <div class="trk-box"><div class="val" id="trk-time">00:00</div><div class="lbl">Tijd</div></div>
       <div class="trk-box"><div class="val" id="trk-pace">--:--</div><div class="lbl">Tempo /km</div></div>
+      <div class="trk-box"><div class="val" id="trk-hr">--</div><div class="lbl">Hartslag</div></div>
     </div>
     <button class="trk-btn trk-btn-lock" onclick="trkLockScreen()">🔒 Scherm vergrendelen</button>
     <button class="trk-btn trk-btn-danger" onclick="trkStop()">■ Stop training</button>
@@ -245,9 +249,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="val" id="trk-done-dist">0.00</div>
       <div class="unit">kilometer · training voltooid</div>
     </div>
-    <div class="trk-grid">
+    <div class="trk-grid" id="trk-done-grid">
       <div class="trk-box"><div class="val" id="trk-done-time">00:00</div><div class="lbl">Tijd</div></div>
       <div class="trk-box"><div class="val" id="trk-done-pace">--:--</div><div class="lbl">Gem. tempo</div></div>
+      <div class="trk-box" id="trk-done-hr-box" style="display:none"><div class="val" id="trk-done-hr">--</div><div class="lbl">Gem. hartslag</div></div>
     </div>
     <button class="trk-btn trk-btn-primary" onclick="trkSave()">💾 Opslaan &amp; afvinken</button>
     <button class="trk-btn trk-btn-muted" onclick="trkClose()">Sluiten zonder opslaan</button>
@@ -639,7 +644,7 @@ function renderWeek(wk, wi, curWeek) {
         </div>
       </div>
       ${s.desc ? `<div class="sc-desc">${s.desc}</div>` : ''}
-      ${trk ? `<div class="sc-tracked">📍 ${trk.dist} km · ${trk.time} · ${trk.pace}/km</div>` : ''}
+      ${trk ? `<div class="sc-tracked">📍 ${trk.dist} km · ${trk.time} · ${trk.pace}/km${trk.hrAvg ? ' · ❤️ ' + trk.hrAvg + ' bpm' : ''}</div>` : ''}
       <div class="sc-tags">${(s.tags||[]).map(tagBadge).join('')}</div>
       ${canTrack ? `<button class="sc-start" onclick="event.stopPropagation();startTracking(${w},${si})">${done ? '↻ Opnieuw starten' : '▶ Start met GPS'}</button>` : ''}
     </div>`;
@@ -773,6 +778,56 @@ function resetSchema() {
 let trkWatchId = null, trkInterval = null, trkStartTime = null, trkTotalDist = 0, trkLastPos = null;
 let trkWeek = null, trkSi = null, trkWakeLock = null, trkUnlockTimer = null;
 
+// ── HARTSLAG (Bluetooth-borstband of horloge met broadcast-app) ──
+let hrDevice = null, hrReadings = [];
+
+function hrSupported() { return !!(navigator.bluetooth); }
+
+async function hrConnect() {
+  if (!hrSupported()) {
+    alert('Bluetooth-hartslagsensor wordt niet ondersteund door deze browser (alleen Chrome op Android/desktop).');
+    return;
+  }
+  try {
+    hrDevice = await navigator.bluetooth.requestDevice({ filters: [{ services: ['heart_rate'] }] });
+    hrDevice.addEventListener('gattserverdisconnected', hrOnDisconnect);
+    const server = await hrDevice.gatt.connect();
+    const service = await server.getPrimaryService('heart_rate');
+    const char = await service.getCharacteristic('heart_rate_measurement');
+    await char.startNotifications();
+    char.addEventListener('characteristicvaluechanged', hrOnData);
+    document.getElementById('hr-connect-btn').style.display = 'none';
+    document.getElementById('hr-status').textContent = `❤️ ${hrDevice.name || 'sensor'} verbonden`;
+  } catch (e) {
+    console.warn('HR-koppeling mislukt of geannuleerd:', e);
+  }
+}
+
+function hrOnData(event) {
+  const value = event.target.value;
+  const flags = value.getUint8(0);
+  const is16bit = (flags & 0x01) === 1;
+  const bpm = is16bit ? value.getUint16(1, true) : value.getUint8(1);
+  hrReadings.push(bpm);
+  const active = document.getElementById('trk-hr');
+  if (active) active.textContent = bpm;
+}
+
+function hrOnDisconnect() {
+  hrDevice = null;
+  const active = document.getElementById('trk-hr');
+  if (active) active.textContent = '--';
+  const status = document.getElementById('hr-status');
+  if (status) status.textContent = '❤️ verbinding verbroken';
+  const btn = document.getElementById('hr-connect-btn');
+  if (btn && hrSupported()) btn.style.display = 'block';
+}
+
+function hrAverageBpm() {
+  if (!hrReadings.length) return null;
+  return Math.round(hrReadings.reduce((a, b) => a + b, 0) / hrReadings.length);
+}
+
 function parseKmTarget(volume) {
   if (!volume) return null;
   const m = volume.match(/^(\d+(?:[.,]\d+)?)\s*km/);
@@ -798,6 +853,11 @@ function startTracking(w, si) {
   document.getElementById('trk-time').textContent = '00:00';
   document.getElementById('trk-pace').textContent = '--:--';
 
+  const hrBtn = document.getElementById('hr-connect-btn');
+  if (hrSupported() && !hrDevice) hrBtn.style.display = 'block';
+  else hrBtn.style.display = 'none';
+  document.getElementById('hr-status').textContent = hrDevice ? `❤️ ${hrDevice.name || 'sensor'} verbonden` : '';
+
   trkSetState('idle');
   document.getElementById('tracker-overlay').classList.add('open');
 }
@@ -805,6 +865,8 @@ function startTracking(w, si) {
 function trkBeginRun() {
   document.getElementById('trk-gps-dot').classList.remove('locked');
   trkTotalDist = 0; trkLastPos = null; trkStartTime = Date.now();
+  hrReadings = [];
+  document.getElementById('trk-hr').textContent = '--';
   trkSetState('active');
 
   trkInterval = setInterval(trkUpdateTimer, 1000);
@@ -879,6 +941,17 @@ function trkStop() {
   } else {
     document.getElementById('trk-done-pace').textContent = '--:--';
   }
+  const hrAvg = hrAverageBpm();
+  const doneGrid = document.getElementById('trk-done-grid');
+  const hrBox = document.getElementById('trk-done-hr-box');
+  if (hrAvg) {
+    document.getElementById('trk-done-hr').textContent = hrAvg;
+    hrBox.style.display = 'block';
+    doneGrid.classList.add('trk-grid-3');
+  } else {
+    hrBox.style.display = 'none';
+    doneGrid.classList.remove('trk-grid-3');
+  }
   trkSetState('done');
 }
 
@@ -886,7 +959,8 @@ function trkSave() {
   const dist = parseFloat(document.getElementById('trk-done-dist').textContent);
   const time = document.getElementById('trk-done-time').textContent;
   const pace = document.getElementById('trk-done-pace').textContent;
-  localStorage.setItem(trkKey(trkWeek, trkSi), JSON.stringify({ dist, time, pace }));
+  const hrAvg = hrAverageBpm();
+  localStorage.setItem(trkKey(trkWeek, trkSi), JSON.stringify({ dist, time, pace, hrAvg }));
   localStorage.setItem(doneKey(trkWeek, trkSi), '1');
   document.getElementById('tracker-overlay').classList.remove('open');
   const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
