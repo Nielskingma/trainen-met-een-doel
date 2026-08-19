@@ -174,6 +174,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .trk-big .unit{font-size:14px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.1em;}
 .trk-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 20px 24px;}
 .trk-grid-3{grid-template-columns:1fr 1fr 1fr;}
+.trk-lap-banner{background:var(--surface);border:1px solid var(--warn);border-radius:12px;margin:0 20px 16px;padding:12px 16px;text-align:center;}
+.trk-lap-banner #trk-lap-label{display:block;font-size:12px;color:var(--warn);letter-spacing:.05em;margin-bottom:8px;}
+.trk-lap-next{background:transparent;border:1px solid var(--warn);color:var(--warn);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:8px 14px;border-radius:8px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.trk-lap-next:disabled{opacity:.4;cursor:not-allowed;}
+#trk-done-laps{margin:0 20px 20px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px 14px;}
+.trk-lap-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);padding:8px 0;border-bottom:1px solid var(--border);}
+.trk-lap-row:last-child{border-bottom:none;}
 .trk-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
 .trk-box .val{font-family:var(--serif);font-size:28px;font-weight:700;color:var(--text);}
 .trk-box .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:4px;}
@@ -230,6 +237,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <strong id="trk-name">—</strong><br>
       <span id="trk-target-label" style="font-size:12px;color:var(--accent);"></span>
     </div>
+    <div class="trk-lap-banner" id="trk-lap-banner" style="display:none">
+      <span id="trk-lap-label">Warming-up</span>
+      <button class="trk-lap-next" id="trk-lap-next-btn" onclick="trkNextPhase()" disabled>Volgende: hoofdtraining →</button>
+    </div>
     <div class="trk-big">
       <div class="val" id="trk-dist">0.00</div>
       <div class="unit">kilometer</div>
@@ -254,6 +265,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="trk-box"><div class="val" id="trk-done-pace">--:--</div><div class="lbl">Gem. tempo</div></div>
       <div class="trk-box" id="trk-done-hr-box" style="display:none"><div class="val" id="trk-done-hr">--</div><div class="lbl">Gem. hartslag</div></div>
     </div>
+    <div id="trk-done-laps" style="display:none"></div>
     <button class="trk-btn trk-btn-primary" onclick="trkSave()">💾 Opslaan &amp; afvinken</button>
     <button class="trk-btn trk-btn-muted" onclick="trkClose()">Sluiten zonder opslaan</button>
   </div>
@@ -777,6 +789,7 @@ function resetSchema() {
 // ── GPS TRACKER ──────────────────────────────────────
 let trkWatchId = null, trkInterval = null, trkStartTime = null, trkTotalDist = 0, trkLastPos = null;
 let trkWeek = null, trkSi = null, trkWakeLock = null, trkUnlockTimer = null;
+let trkWarmupMin = null, trkPhase = 'main', trkLapSplit = null, trkElapsedAtStop = 0;
 
 // ── HARTSLAG (Bluetooth-borstband of horloge met broadcast-app) ──
 let hrDevice = null, hrReadings = [];
@@ -834,6 +847,15 @@ function parseKmTarget(volume) {
   return m ? parseFloat(m[1].replace(',', '.')) : null;
 }
 
+// Herkent een genoemde warming-up in de omschrijving (bijv. "Warm op 15 min",
+// "Warme-up 10–15 min") en dwingt een minimum van 5 minuten af.
+function parseWarmupMin(desc) {
+  if (!desc) return null;
+  const m = desc.match(/warm(?:e-up|\s*op)\s*(\d+)(?:[–-]\d+)?\s*min/i);
+  if (!m) return null;
+  return Math.max(5, parseInt(m[1]));
+}
+
 function trkKey(w, si) { return `trk_${w}_${si}`; }
 
 function startTracking(w, si) {
@@ -841,9 +863,11 @@ function startTracking(w, si) {
   const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
   const session = schema.weeks.find(wk => wk.weekNum === w).sessions[si];
   trkWeek = w; trkSi = si;
+  trkWarmupMin = parseWarmupMin(session.desc);
   const targetKm = parseKmTarget(session.volume);
   const label = session.name + (session.day ? ' · ' + session.day : '');
-  const targetLabel = targetKm ? `Doel: ${targetKm} km` : '';
+  let targetLabel = targetKm ? `Doel: ${targetKm} km` : '';
+  if (trkWarmupMin) targetLabel += (targetLabel ? ' · ' : '') + `eerste ${trkWarmupMin} min warming-up (aparte lap)`;
 
   document.getElementById('trk-idle-name').textContent = label;
   document.getElementById('trk-idle-target-label').textContent = targetLabel;
@@ -865,9 +889,22 @@ function startTracking(w, si) {
 function trkBeginRun() {
   document.getElementById('trk-gps-dot').classList.remove('locked');
   trkTotalDist = 0; trkLastPos = null; trkStartTime = Date.now();
+  trkPhase = trkWarmupMin ? 'warmup' : 'main';
+  trkLapSplit = null;
   hrReadings = [];
   document.getElementById('trk-hr').textContent = '--';
   trkSetState('active');
+
+  const banner = document.getElementById('trk-lap-banner');
+  const nextBtn = document.getElementById('trk-lap-next-btn');
+  if (trkWarmupMin) {
+    banner.style.display = 'block';
+    nextBtn.style.display = 'inline-block';
+    nextBtn.disabled = true;
+    document.getElementById('trk-lap-label').textContent = `Warming-up · nog ${trkFormatTime(trkWarmupMin * 60)}`;
+  } else {
+    banner.style.display = 'none';
+  }
 
   trkInterval = setInterval(trkUpdateTimer, 1000);
   trkWatchId = navigator.geolocation.watchPosition(
@@ -876,6 +913,16 @@ function trkBeginRun() {
     { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
   );
   if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => trkWakeLock = l).catch(() => {});
+}
+
+function trkNextPhase() {
+  if (trkPhase !== 'warmup') return;
+  const elapsed = Math.floor((Date.now() - trkStartTime) / 1000);
+  if (elapsed < trkWarmupMin * 60) return;
+  trkLapSplit = { dist: trkTotalDist, time: elapsed };
+  trkPhase = 'main';
+  document.getElementById('trk-lap-label').textContent = '✓ Warming-up klaar · hoofdtraining bezig';
+  document.getElementById('trk-lap-next-btn').style.display = 'none';
 }
 
 function trkOnGPSUpdate(pos) {
@@ -900,6 +947,18 @@ function trkUpdateTimer() {
   const elapsed = Math.floor((Date.now() - trkStartTime) / 1000);
   document.getElementById('trk-time').textContent = trkFormatTime(elapsed);
   trkUpdatePace();
+
+  if (trkWarmupMin && trkPhase === 'warmup') {
+    const remain = trkWarmupMin * 60 - elapsed;
+    const btn = document.getElementById('trk-lap-next-btn');
+    if (remain <= 0) {
+      document.getElementById('trk-lap-label').textContent = 'Warming-up klaar — mag door naar hoofdtraining';
+      btn.disabled = false;
+    } else {
+      document.getElementById('trk-lap-label').textContent = `Warming-up · nog ${trkFormatTime(remain)}`;
+      btn.disabled = true;
+    }
+  }
 }
 
 function trkUpdatePace() {
@@ -931,6 +990,7 @@ function trkStopWatchers() {
 
 function trkStop() {
   const elapsed = Math.floor((Date.now() - trkStartTime) / 1000);
+  trkElapsedAtStop = elapsed;
   trkStopWatchers();
   document.getElementById('trk-done-dist').textContent = trkTotalDist.toFixed(2);
   document.getElementById('trk-done-time').textContent = trkFormatTime(elapsed);
@@ -952,6 +1012,19 @@ function trkStop() {
     hrBox.style.display = 'none';
     doneGrid.classList.remove('trk-grid-3');
   }
+
+  const lapsBox = document.getElementById('trk-done-laps');
+  if (trkLapSplit) {
+    const warmupDist = trkLapSplit.dist, warmupTime = trkLapSplit.time;
+    const mainDist = trkTotalDist - trkLapSplit.dist, mainTime = elapsed - trkLapSplit.time;
+    lapsBox.innerHTML = `
+      <div class="trk-lap-row"><span>🔸 Warming-up</span><span>${warmupDist.toFixed(2)} km · ${trkFormatTime(warmupTime)}</span></div>
+      <div class="trk-lap-row"><span>🔹 Hoofdtraining</span><span>${mainDist.toFixed(2)} km · ${trkFormatTime(mainTime)}</span></div>`;
+    lapsBox.style.display = 'block';
+  } else {
+    lapsBox.style.display = 'none';
+  }
+
   trkSetState('done');
 }
 
@@ -960,7 +1033,11 @@ function trkSave() {
   const time = document.getElementById('trk-done-time').textContent;
   const pace = document.getElementById('trk-done-pace').textContent;
   const hrAvg = hrAverageBpm();
-  localStorage.setItem(trkKey(trkWeek, trkSi), JSON.stringify({ dist, time, pace, hrAvg }));
+  const laps = trkLapSplit ? {
+    warmup: { dist: +trkLapSplit.dist.toFixed(2), time: trkFormatTime(trkLapSplit.time) },
+    main: { dist: +(trkTotalDist - trkLapSplit.dist).toFixed(2), time: trkFormatTime(trkElapsedAtStop - trkLapSplit.time) }
+  } : null;
+  localStorage.setItem(trkKey(trkWeek, trkSi), JSON.stringify({ dist, time, pace, hrAvg, laps }));
   localStorage.setItem(doneKey(trkWeek, trkSi), '1');
   document.getElementById('tracker-overlay').classList.remove('open');
   const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
