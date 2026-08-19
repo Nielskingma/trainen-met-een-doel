@@ -2149,18 +2149,23 @@ function genCombo(p, cfg) {
   const zwDistC  = parseInt(p.zw_afstand);
   const distSwim = {0:300, 500:800, 1000:1500, 1500:2500, 3000:4000, 3800:5000}[zwDistC] || 1500;
   const swimM  = clamp(Math.round(distSwim * lvl * swimInjVol * cfg.volumeFactor / 100) * 100, zwDistC === 0 ? 200 : 400, 8000);
+  const walkStartMin = Math.round(({nauwelijks:20, soms:30, regelmatig:40, actief:50}[p.actief] || 30) * cfg.volumeFactor);
 
-  // Drie parallelle volumecurves — recov/taper vallen per week samen (zelfde
+  // Vier parallelle volumecurves — recov/taper vallen per week samen (zelfde
   // curve/hasTaper voor alle sporten), alleen het volume zelf verschilt per sport.
+  // Zelfde curve/formule als de losse sport-generators, zodat een sessie er
+  // hetzelfde uitziet ongeacht of je 'm los doet of combineert met andere sporten.
   const runVols  = buildVolumeCurve(runKm,  total, curve, { increaseRate, hasTaper: cfg.hasTaper, taperFinal: 0.5, taperOther: 0.65 });
   const bikeVols = buildVolumeCurve(bikeKm, total, curve, { increaseRate, hasTaper: cfg.hasTaper, taperFinal: 0.5, taperOther: 0.65 });
   const swimVols = buildVolumeCurve(swimM,  total, curve, { increaseRate, hasTaper: cfg.hasTaper, taperFinal: 0.5, taperOther: 0.70 });
+  const walkVols = buildVolumeCurve(walkStartMin, total, curve, { increaseRate, hasTaper: false, recoveryDrop: 0.75 });
 
   let strSets  = Math.max(1, Math.round(({nauwelijks:2,soms:3,regelmatig:3,actief:4}[p.actief]||3) * cfg.volumeFactor));
 
   const runCount  = schedule.filter(s => s.sport === 'hardlopen').length;
   const bikeCount = schedule.filter(s => s.sport === 'fietsen').length;
   const swimCount = schedule.filter(s => s.sport === 'zwemmen').length;
+  const walkCount = schedule.filter(s => s.sport === 'wandelen').length;
   const strCount  = schedule.filter(s => s.sport === 'kracht').length;
 
   const weeks = [];
@@ -2171,6 +2176,7 @@ function genCombo(p, cfg) {
     const weekRunKm  = runVols[w-1].vol;
     const weekBikeKm = bikeVols[w-1].vol;
     const weekSwimM  = swimVols[w-1].vol;
+    const weekWalkMin = walkVols[w-1].vol;
 
     const counters = { hardlopen: 0, fietsen: 0, zwemmen: 0, wandelen: 0, kracht: 0 };
     const sessions = schedule.map(({ day, sport }) => {
@@ -2186,15 +2192,7 @@ function genCombo(p, cfg) {
         const isLong = idx === bikeCount - 1;
         const isQual = cfg.qualityEnabled && !recov && !taper && idx === 1 && bikeCount >= 3 && w >= cfg.qualityFrom;
         const isLate = w >= Math.round(total * 0.55);
-        const km = isLong ? clamp(Math.round(weekBikeKm*0.45),15,120) : isQual ? clamp(Math.round(weekBikeKm*0.25),15,60) : clamp(Math.round(weekBikeKm*0.28),10,50);
-        const useInterval = isLate && cfg.maxIntensity === 'interval';
-        const type = isLong ? 'long' : isQual && cfg.maxIntensity!=='easy' ? (useInterval ? 'interval' : 'tempo') : 'easy';
-        const name = isLong ? 'Lange rit' : type==='interval' ? 'Intervalrit' : type==='tempo' ? 'Tempotraining' : 'Herstelrit';
-        const desc = type==='easy' ? 'Rustig Zone 2 rit. Hoog trapritme (85–95 rpm).'
-                   : type==='tempo' ? `Warm op 15 min. ${clamp(Math.round(km*4),15,45)} min Zone 3–4 tempo. Koel af.`
-                   : type==='interval' ? 'Warm op 15 min. 5–8× 2 min hoog vermogen + 2 min herstel. Koel af.'
-                   : 'Rustige lange rit. Neem voeding mee vanaf 90 min.';
-        return { day, name, type, volume: km+' km', desc, tags:[type==='easy'?'easy':type==='long'?'long':'quality'], sport };
+        return { ...bikeSession(day, isLong, isQual && cfg.maxIntensity !== 'easy', isLate, weekBikeKm, cfg), sport };
       }
       if (sport === 'zwemmen') {
         const isLong = idx === swimCount - 1;
@@ -2203,10 +2201,8 @@ function genCombo(p, cfg) {
           w >= Math.round(total*0.55), weekSwimM, swimCount, w, total, taper, recov, cfg), sport };
       }
       if (sport === 'wandelen') {
-        const isLong = idx === 0;
-        const min = recov ? 20 : isLong ? 45 : 30;
-        return { day, name: isLong?'Lange wandeling':'Actieve wandeling', type:isLong?'long':'easy',
-          volume: min+' min', desc:'Stevig wandeltempo — Zone 2.', tags:[isLong?'long':'easy'], sport };
+        const isLong = idx === walkCount - 1;
+        return { ...walkSession(day, isLong, walkCount, weekWalkMin, w), sport };
       }
       // kracht
       const sets = recov ? Math.max(2, strSets-1) : strSets;
