@@ -258,7 +258,20 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="free-start-section" style="display:none">
       <button class="trk-btn trk-btn-lock hr-connect-btn" onclick="hrConnect()" style="display:none">❤️ Koppel hartslagsensor</button>
       <div class="hr-status" style="text-align:center;font-size:11px;color:var(--muted);margin:-4px 0 12px;"></div>
-      <button class="trk-btn trk-btn-primary" onclick="beginFreeTraining()">▶ <span id="free-start-label">Start training</span></button>
+
+      <div class="trk-big">
+        <div class="val trk-dist-el">0.00</div>
+        <div class="unit">kilometer</div>
+      </div>
+      <div class="trk-grid trk-grid-3">
+        <div class="trk-box"><div class="val trk-time-el">00:00</div><div class="lbl">Tijd</div></div>
+        <div class="trk-box"><div class="val trk-pace-el">--:--</div><div class="lbl">Tempo /km</div></div>
+        <div class="trk-box"><div class="val trk-hr-el">--</div><div class="lbl">Hartslag</div></div>
+      </div>
+
+      <button class="trk-btn trk-btn-primary" id="free-start-btn" onclick="beginFreeTraining()">▶ <span id="free-start-label">Start training</span></button>
+      <button class="trk-btn trk-btn-lock" id="free-lock-btn" onclick="trkLockScreen()" style="display:none">🔒 Scherm vergrendelen</button>
+      <button class="trk-btn trk-btn-danger" id="free-stop-btn" onclick="trkStop()" style="display:none">■ Stop training</button>
     </div>
   </div>
 
@@ -270,7 +283,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <button class="trk-btn trk-btn-lock hr-connect-btn" onclick="hrConnect()" style="display:none">❤️ Koppel hartslagsensor</button>
     <div class="hr-status" style="text-align:center;font-size:11px;color:var(--muted);margin:-4px 0 12px;"></div>
-    <button class="trk-btn trk-btn-primary" onclick="trkBeginRun()">▶ Start training</button>
+    <button class="trk-btn trk-btn-primary" onclick="beginSessionTraining()">▶ Start training</button>
   </div>
 
   <div class="trk-state" id="trk-active">
@@ -284,13 +297,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="trk-lap-next" id="trk-lap-next-btn" onclick="trkNextPhase()" disabled>Volgende: hoofdtraining →</button>
     </div>
     <div class="trk-big">
-      <div class="val" id="trk-dist">0.00</div>
+      <div class="val trk-dist-el" id="trk-dist">0.00</div>
       <div class="unit">kilometer</div>
     </div>
     <div class="trk-grid trk-grid-3">
-      <div class="trk-box"><div class="val" id="trk-time">00:00</div><div class="lbl">Tijd</div></div>
-      <div class="trk-box"><div class="val" id="trk-pace">--:--</div><div class="lbl">Tempo /km</div></div>
-      <div class="trk-box"><div class="val" id="trk-hr">--</div><div class="lbl">Hartslag</div></div>
+      <div class="trk-box"><div class="val trk-time-el" id="trk-time">00:00</div><div class="lbl">Tijd</div></div>
+      <div class="trk-box"><div class="val trk-pace-el" id="trk-pace">--:--</div><div class="lbl">Tempo /km</div></div>
+      <div class="trk-box"><div class="val trk-hr-el" id="trk-hr">--</div><div class="lbl">Hartslag</div></div>
     </div>
     <button class="trk-btn trk-btn-lock" onclick="trkLockScreen()">🔒 Scherm vergrendelen</button>
     <button class="trk-btn trk-btn-danger" onclick="trkStop()">■ Stop training</button>
@@ -905,14 +918,12 @@ function hrOnData(event) {
   const is16bit = (flags & 0x01) === 1;
   const bpm = is16bit ? value.getUint16(1, true) : value.getUint8(1);
   hrReadings.push(bpm);
-  const active = document.getElementById('trk-hr');
-  if (active) active.textContent = bpm;
+  document.querySelectorAll('.trk-hr-el').forEach(el => el.textContent = bpm);
 }
 
 function hrOnDisconnect() {
   hrDevice = null;
-  const active = document.getElementById('trk-hr');
-  if (active) active.textContent = '--';
+  document.querySelectorAll('.trk-hr-el').forEach(el => el.textContent = '--');
   document.querySelectorAll('.hr-status').forEach(el => el.textContent = '❤️ verbinding verbroken');
   updateHrUI();
 }
@@ -972,14 +983,15 @@ function openFreeStart() {
   if (!navigator.geolocation) { alert('GPS niet beschikbaar op dit apparaat'); return; }
   document.querySelectorAll('#trk-sportpick .sportpick-btn').forEach(b => b.classList.remove('selected'));
   document.getElementById('free-start-section').style.display = 'none';
+  resetFreeStartButtons();
   trkFreeSport = null;
   trkSetState('sportpick');
   document.getElementById('tracker-overlay').classList.add('open');
 }
 
 // Kiezen is los van starten: sport selecteren toont de start-sectie op
-// hetzelfde scherm (incl. optionele hartslagkoppeling) i.p.v. naar een
-// apart bevestigingsscherm te gaan.
+// hetzelfde scherm (incl. de live cijfers, nog op nul, en optionele
+// hartslagkoppeling) i.p.v. naar een apart bevestigingsscherm te gaan.
 function selectFreeSport(sport, label) {
   trkFreeSport = sport;
   document.querySelectorAll('#trk-sportpick .sportpick-btn').forEach(b => b.classList.toggle('selected', b.dataset.sport === sport));
@@ -988,10 +1000,23 @@ function selectFreeSport(sport, label) {
   updateHrUI();
 }
 
+function resetFreeStartButtons() {
+  document.getElementById('free-start-btn').style.display = 'block';
+  document.getElementById('free-lock-btn').style.display = 'none';
+  document.getElementById('free-stop-btn').style.display = 'none';
+}
+
+// Blijft op hetzelfde scherm — geen trkSetState hier, alleen de cijfers
+// beginnen te lopen en de start-knop wisselt voor stop/vergrendel-knoppen.
 function beginFreeTraining() {
   trkWeek = null; trkSi = null;
   trkWarmupMin = null;
-  showIdleScreen(document.getElementById('free-start-label').textContent, '');
+  document.querySelectorAll('.trk-dist-el').forEach(el => el.textContent = '0.00');
+  document.querySelectorAll('.trk-time-el').forEach(el => el.textContent = '00:00');
+  document.querySelectorAll('.trk-pace-el').forEach(el => el.textContent = '--:--');
+  document.getElementById('free-start-btn').style.display = 'none';
+  document.getElementById('free-lock-btn').style.display = 'block';
+  document.getElementById('free-stop-btn').style.display = 'block';
   trkBeginRun();
 }
 
@@ -1006,14 +1031,18 @@ function showIdleScreen(label, targetLabel) {
   updateHrUI();
 }
 
+function beginSessionTraining() {
+  trkSetState('active');
+  trkBeginRun();
+}
+
 function trkBeginRun() {
   document.getElementById('trk-gps-dot').classList.remove('locked');
   trkTotalDist = 0; trkLastPos = null; trkStartTime = Date.now();
   trkPhase = trkWarmupMin ? 'warmup' : 'main';
   trkLapSplit = null;
   hrReadings = [];
-  document.getElementById('trk-hr').textContent = '--';
-  trkSetState('active');
+  document.querySelectorAll('.trk-hr-el').forEach(el => el.textContent = '--');
 
   const banner = document.getElementById('trk-lap-banner');
   const nextBtn = document.getElementById('trk-lap-next-btn');
@@ -1055,7 +1084,7 @@ function trkOnGPSUpdate(pos) {
     if (d > 0.003) {
       trkTotalDist += d;
       trkLastPos = pos;
-      document.getElementById('trk-dist').textContent = trkTotalDist.toFixed(2);
+      document.querySelectorAll('.trk-dist-el').forEach(el => el.textContent = trkTotalDist.toFixed(2));
       trkUpdatePace();
     }
   } else {
@@ -1065,7 +1094,7 @@ function trkOnGPSUpdate(pos) {
 
 function trkUpdateTimer() {
   const elapsed = Math.floor((Date.now() - trkStartTime) / 1000);
-  document.getElementById('trk-time').textContent = trkFormatTime(elapsed);
+  document.querySelectorAll('.trk-time-el').forEach(el => el.textContent = trkFormatTime(elapsed));
   trkUpdatePace();
 
   if (trkWarmupMin && trkPhase === 'warmup') {
@@ -1087,7 +1116,7 @@ function trkUpdatePace() {
     const paceMin = elapsedMin / trkTotalDist;
     const mins = Math.floor(paceMin);
     const secs = Math.round((paceMin - mins) * 60);
-    document.getElementById('trk-pace').textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+    document.querySelectorAll('.trk-pace-el').forEach(el => el.textContent = `${mins}:${String(secs).padStart(2, '0')}`);
   }
 }
 
