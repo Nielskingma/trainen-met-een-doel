@@ -848,12 +848,15 @@ function parseKmTarget(volume) {
 }
 
 // Herkent een genoemde warming-up in de omschrijving (bijv. "Warm op 15 min",
-// "Warme-up 10–15 min") en dwingt een minimum van 5 minuten af.
-function parseWarmupMin(desc) {
-  if (!desc) return null;
-  const m = desc.match(/warm(?:e-up|\s*op)\s*(\d+)(?:[–-]\d+)?\s*min/i);
-  if (!m) return null;
-  return Math.max(5, parseInt(m[1]));
+// "Warme-up 10–15 min") en dwingt een minimum van 5 minuten af. Sessies zonder
+// genoemde warming-up (rustige duurlopen, lange lopen/ritten/wandelingen) zijn
+// lichter en krijgen toch een vaste, korte warming-up van 5 minuten.
+function parseWarmupMin(session) {
+  const desc = session.desc;
+  const m = desc && desc.match(/warm(?:e-up|\s*op)\s*(\d+)(?:[–-]\d+)?\s*min/i);
+  if (m) return Math.max(5, parseInt(m[1]));
+  if (['easy', 'long'].includes(session.type)) return 5;
+  return null;
 }
 
 function trkKey(w, si) { return `trk_${w}_${si}`; }
@@ -863,7 +866,7 @@ function startTracking(w, si) {
   const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
   const session = schema.weeks.find(wk => wk.weekNum === w).sessions[si];
   trkWeek = w; trkSi = si;
-  trkWarmupMin = parseWarmupMin(session.desc);
+  trkWarmupMin = parseWarmupMin(session);
   const targetKm = parseKmTarget(session.volume);
   const label = session.name + (session.day ? ' · ' + session.day : '');
   let targetLabel = targetKm ? `Doel: ${targetKm} km` : '';
