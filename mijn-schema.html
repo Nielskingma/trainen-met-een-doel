@@ -152,6 +152,47 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .empty-state p{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:24px;}
 .btn-primary{display:inline-block;padding:14px 28px;border-radius:12px;background:var(--accent);color:#0d1117;font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;font-weight:500;transition:all .2s;}
 .btn-primary:hover{background:var(--accent2);}
+
+/* ── GPS TRACKER (start vanaf sessie) ── */
+.sc-start{margin-top:10px;width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--accent);color:var(--accent);background:rgba(74,222,128,.06);font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.sc-start:hover{background:rgba(74,222,128,.12);}
+.sc-tracked{font-size:11px;color:var(--accent2);margin-top:6px;}
+
+#tracker-overlay{display:none;position:fixed;inset:0;background:var(--bg);z-index:200;overflow-y:auto;}
+#tracker-overlay.open{display:block;}
+.trk-header{padding:20px 20px 0;text-align:right;}
+.trk-close{background:none;border:1px solid var(--border);color:var(--muted);border-radius:99px;width:32px;height:32px;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.trk-state{display:none;}
+.trk-state.visible{display:block;}
+.trk-info{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin:12px 20px 20px;padding:16px;font-size:13px;color:var(--muted);line-height:1.6;}
+.trk-info strong{color:var(--text);}
+.trk-gps-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-right:6px;animation:trkPulse 1.5s infinite;}
+.trk-gps-dot.locked{background:var(--accent);animation:none;}
+@keyframes trkPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.8);}}
+.trk-big{text-align:center;padding:16px 20px 32px;}
+.trk-big .val{font-family:var(--serif);font-size:72px;font-weight:700;color:var(--accent);line-height:1;letter-spacing:-2px;}
+.trk-big .unit{font-size:14px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.1em;}
+.trk-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 20px 24px;}
+.trk-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;}
+.trk-box .val{font-family:var(--serif);font-size:28px;font-weight:700;color:var(--text);}
+.trk-box .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:4px;}
+.trk-btn{display:block;width:calc(100% - 40px);margin:0 20px 12px;padding:18px;border-radius:12px;border:none;font-family:var(--mono);font-size:13px;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.trk-btn-primary{background:var(--accent);color:#0d1117;font-weight:500;}
+.trk-btn-danger{background:transparent;border:1px solid var(--danger);color:var(--danger);}
+.trk-btn-muted{background:var(--surface);border:1px solid var(--border);color:var(--muted);}
+.trk-btn-lock{background:transparent;border:1px solid var(--warn);color:var(--warn);}
+
+#trk-lock{display:none;position:fixed;inset:0;background:var(--bg);z-index:999;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px;touch-action:none;}
+#trk-lock.active{display:flex;}
+.trk-lock-dist{font-family:var(--serif);font-size:96px;font-weight:700;color:var(--accent);line-height:1;letter-spacing:-4px;}
+.trk-lock-unit{font-size:16px;color:var(--muted);text-transform:uppercase;letter-spacing:.15em;margin-top:8px;margin-bottom:40px;}
+.trk-lock-stats{display:flex;gap:48px;margin-bottom:60px;}
+.trk-lock-stats span{font-family:var(--serif);font-size:36px;font-weight:700;color:var(--text);display:block;}
+.trk-lock-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:4px;}
+.trk-lock-hint{font-size:13px;color:var(--muted);margin-bottom:20px;}
+.trk-lock-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:14px;padding:18px 32px;border-radius:12px;cursor:pointer;user-select:none;-webkit-user-select:none;position:relative;overflow:hidden;transition:border-color .2s;}
+.trk-lock-btn::after{content:'';position:absolute;left:0;top:0;bottom:0;width:0%;background:rgba(74,222,128,.15);transition:none;}
+.trk-lock-btn.filling::after{width:100%;transition:width 3s linear;}
 </style>
 </head>
 <body>
@@ -164,6 +205,58 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div id="schema-view">
     <!-- filled by JS -->
   </div>
+</div>
+
+<div id="tracker-overlay">
+  <div class="trk-header">
+    <button class="trk-close" onclick="trkClose()">✕</button>
+  </div>
+
+  <div class="trk-state visible" id="trk-active">
+    <div class="trk-info">
+      <span class="trk-gps-dot" id="trk-gps-dot"></span>
+      <strong id="trk-name">—</strong><br>
+      <span id="trk-target-label" style="font-size:12px;color:var(--accent);"></span>
+    </div>
+    <div class="trk-big">
+      <div class="val" id="trk-dist">0.00</div>
+      <div class="unit">kilometer</div>
+    </div>
+    <div class="trk-grid">
+      <div class="trk-box"><div class="val" id="trk-time">00:00</div><div class="lbl">Tijd</div></div>
+      <div class="trk-box"><div class="val" id="trk-pace">--:--</div><div class="lbl">Tempo /km</div></div>
+    </div>
+    <button class="trk-btn trk-btn-lock" onclick="trkLockScreen()">🔒 Scherm vergrendelen</button>
+    <button class="trk-btn trk-btn-danger" onclick="trkStop()">■ Stop training</button>
+  </div>
+
+  <div class="trk-state" id="trk-done">
+    <div class="trk-big">
+      <div style="font-size:40px;margin-bottom:8px">✓</div>
+      <div class="val" id="trk-done-dist">0.00</div>
+      <div class="unit">kilometer · training voltooid</div>
+    </div>
+    <div class="trk-grid">
+      <div class="trk-box"><div class="val" id="trk-done-time">00:00</div><div class="lbl">Tijd</div></div>
+      <div class="trk-box"><div class="val" id="trk-done-pace">--:--</div><div class="lbl">Gem. tempo</div></div>
+    </div>
+    <button class="trk-btn trk-btn-primary" onclick="trkSave()">💾 Opslaan &amp; afvinken</button>
+    <button class="trk-btn trk-btn-muted" onclick="trkClose()">Sluiten zonder opslaan</button>
+  </div>
+</div>
+
+<div id="trk-lock">
+  <div class="trk-lock-dist" id="trk-lock-dist">0.00</div>
+  <div class="trk-lock-unit">kilometer</div>
+  <div class="trk-lock-stats">
+    <div><span id="trk-lock-time">00:00</span><div class="trk-lock-lbl">Tijd</div></div>
+    <div><span id="trk-lock-pace">--:--</span><div class="trk-lock-lbl">Tempo /km</div></div>
+  </div>
+  <div class="trk-lock-hint">Houd 3 seconden ingedrukt om te ontgrendelen</div>
+  <button class="trk-lock-btn" id="trk-lock-btn"
+    onpointerdown="trkStartUnlock()" onpointerup="trkCancelUnlock()" onpointerleave="trkCancelUnlock()">
+    🔓 Houd ingedrukt om te ontgrendelen
+  </button>
 </div>
 
 <script>
@@ -326,6 +419,7 @@ function toggleDone(w, s, el) {
   if (localStorage.getItem(key) === '1') {
     localStorage.removeItem(key);
     localStorage.removeItem(rpeKey(w, s));
+    localStorage.removeItem(trkKey(w, s));
     card.classList.remove('completed');
     const rpeRow = card.querySelector('.rpe-row');
     if (rpeRow) rpeRow.remove();
@@ -487,6 +581,9 @@ function renderWeek(wk, wi, curWeek) {
   const sessionsHtml = wk.sessions.map((s, si) => {
     const done = isDone(w, si);
     const isRace = s.type === 'race';
+    const canTrack = ['hardlopen','fietsen','wandelen'].includes(s.sport);
+    const tracked = localStorage.getItem(trkKey(w, si));
+    const trk = tracked ? JSON.parse(tracked) : null;
     return `
     <div class="session-card ${done?'completed':''} ${isRace?'race-card':''}" onclick="toggleDone(${w},${si},this)">
       <div class="sc-top">
@@ -500,7 +597,9 @@ function renderWeek(wk, wi, curWeek) {
         </div>
       </div>
       ${s.desc ? `<div class="sc-desc">${s.desc}</div>` : ''}
+      ${trk ? `<div class="sc-tracked">📍 ${trk.dist} km · ${trk.time} · ${trk.pace}/km</div>` : ''}
       <div class="sc-tags">${(s.tags||[]).map(tagBadge).join('')}</div>
+      ${canTrack ? `<button class="sc-start" onclick="event.stopPropagation();startTracking(${w},${si})">${done ? '↻ Opnieuw starten' : '▶ Start met GPS'}</button>` : ''}
     </div>`;
   }).join('');
 
@@ -627,6 +726,160 @@ function resetSchema() {
   localStorage.removeItem('tmg_generated_schema');
   window.location.href = 'onboarding.html';
 }
+
+// ── GPS TRACKER ──────────────────────────────────────
+let trkWatchId = null, trkInterval = null, trkStartTime = null, trkTotalDist = 0, trkLastPos = null;
+let trkWeek = null, trkSi = null, trkWakeLock = null, trkUnlockTimer = null;
+
+function parseKmTarget(volume) {
+  if (!volume) return null;
+  const m = volume.match(/^(\d+(?:[.,]\d+)?)\s*km/);
+  return m ? parseFloat(m[1].replace(',', '.')) : null;
+}
+
+function trkKey(w, si) { return `trk_${w}_${si}`; }
+
+function startTracking(w, si) {
+  if (!navigator.geolocation) { alert('GPS niet beschikbaar op dit apparaat'); return; }
+  const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
+  const session = schema.weeks.find(wk => wk.weekNum === w).sessions[si];
+  trkWeek = w; trkSi = si;
+  const targetKm = parseKmTarget(session.volume);
+
+  document.getElementById('trk-name').textContent = session.name + (session.day ? ' · ' + session.day : '');
+  document.getElementById('trk-target-label').textContent = targetKm ? `Doel: ${targetKm} km` : '';
+  document.getElementById('trk-gps-dot').classList.remove('locked');
+  document.getElementById('trk-dist').textContent = '0.00';
+  document.getElementById('trk-time').textContent = '00:00';
+  document.getElementById('trk-pace').textContent = '--:--';
+
+  trkTotalDist = 0; trkLastPos = null; trkStartTime = Date.now();
+  trkSetState('active');
+  document.getElementById('tracker-overlay').classList.add('open');
+
+  trkInterval = setInterval(trkUpdateTimer, 1000);
+  trkWatchId = navigator.geolocation.watchPosition(
+    trkOnGPSUpdate,
+    err => console.warn('GPS error:', err),
+    { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
+  );
+  if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => trkWakeLock = l).catch(() => {});
+}
+
+function trkOnGPSUpdate(pos) {
+  document.getElementById('trk-gps-dot').classList.add('locked');
+  if (trkLastPos) {
+    const d = haversineKm(
+      trkLastPos.coords.latitude, trkLastPos.coords.longitude,
+      pos.coords.latitude, pos.coords.longitude
+    );
+    if (d > 0.003) {
+      trkTotalDist += d;
+      trkLastPos = pos;
+      document.getElementById('trk-dist').textContent = trkTotalDist.toFixed(2);
+      trkUpdatePace();
+    }
+  } else {
+    trkLastPos = pos;
+  }
+}
+
+function trkUpdateTimer() {
+  const elapsed = Math.floor((Date.now() - trkStartTime) / 1000);
+  document.getElementById('trk-time').textContent = trkFormatTime(elapsed);
+  trkUpdatePace();
+}
+
+function trkUpdatePace() {
+  const elapsedMin = (Date.now() - trkStartTime) / 1000 / 60;
+  if (trkTotalDist > 0.1) {
+    const paceMin = elapsedMin / trkTotalDist;
+    const mins = Math.floor(paceMin);
+    const secs = Math.round((paceMin - mins) * 60);
+    document.getElementById('trk-pace').textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+  }
+}
+
+function trkFormatTime(secs) {
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+  return h > 0 ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function trkStopWatchers() {
+  if (trkInterval) { clearInterval(trkInterval); trkInterval = null; }
+  if (trkWatchId !== null) { navigator.geolocation.clearWatch(trkWatchId); trkWatchId = null; }
+  if (trkWakeLock) { trkWakeLock.release().catch(() => {}); trkWakeLock = null; }
+}
+
+function trkStop() {
+  const elapsed = Math.floor((Date.now() - trkStartTime) / 1000);
+  trkStopWatchers();
+  document.getElementById('trk-done-dist').textContent = trkTotalDist.toFixed(2);
+  document.getElementById('trk-done-time').textContent = trkFormatTime(elapsed);
+  if (trkTotalDist > 0.1) {
+    const paceMin = (elapsed / 60) / trkTotalDist;
+    const mins = Math.floor(paceMin), secs = Math.round((paceMin - mins) * 60);
+    document.getElementById('trk-done-pace').textContent = `${mins}:${String(secs).padStart(2, '0')}`;
+  } else {
+    document.getElementById('trk-done-pace').textContent = '--:--';
+  }
+  trkSetState('done');
+}
+
+function trkSave() {
+  const dist = parseFloat(document.getElementById('trk-done-dist').textContent);
+  const time = document.getElementById('trk-done-time').textContent;
+  const pace = document.getElementById('trk-done-pace').textContent;
+  localStorage.setItem(trkKey(trkWeek, trkSi), JSON.stringify({ dist, time, pace }));
+  localStorage.setItem(doneKey(trkWeek, trkSi), '1');
+  document.getElementById('tracker-overlay').classList.remove('open');
+  const schema = JSON.parse(localStorage.getItem('tmg_generated_schema'));
+  if (schema) renderSchema(schema);
+}
+
+function trkClose() {
+  trkStopWatchers();
+  document.getElementById('tracker-overlay').classList.remove('open');
+  trkSetState('active');
+}
+
+function trkSetState(state) {
+  document.getElementById('trk-active').className = `trk-state${state === 'active' ? ' visible' : ''}`;
+  document.getElementById('trk-done').className = `trk-state${state === 'done' ? ' visible' : ''}`;
+}
+
+// ── SCHERMVERGRENDELING (tracker) ───────────────────
+function trkLockScreen() {
+  if (navigator.wakeLock && !trkWakeLock) navigator.wakeLock.request('screen').then(l => trkWakeLock = l).catch(() => {});
+  document.getElementById('trk-lock').classList.add('active');
+  trkUpdateLockScreen();
+}
+function trkUpdateLockScreen() {
+  document.getElementById('trk-lock-dist').textContent = document.getElementById('trk-dist').textContent;
+  document.getElementById('trk-lock-time').textContent = document.getElementById('trk-time').textContent;
+  document.getElementById('trk-lock-pace').textContent = document.getElementById('trk-pace').textContent;
+}
+function trkStartUnlock() {
+  const btn = document.getElementById('trk-lock-btn');
+  btn.classList.add('filling');
+  trkUnlockTimer = setTimeout(() => {
+    document.getElementById('trk-lock').classList.remove('active');
+    btn.classList.remove('filling');
+  }, 3000);
+}
+function trkCancelUnlock() {
+  clearTimeout(trkUnlockTimer);
+  document.getElementById('trk-lock-btn').classList.remove('filling');
+}
+setInterval(() => {
+  if (document.getElementById('trk-lock')?.classList.contains('active')) trkUpdateLockScreen();
+}, 1000);
 </script>
 </body>
 </html>

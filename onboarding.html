@@ -1464,6 +1464,12 @@ function generateSchema() {
   else if (type === 'combo')    weeks = genCombo(profile, cfg);
   else                          weeks = genRunning(profile, cfg);
 
+  // Sport-tag voor GPS-tracker (combo/recovery taggen hun sessies al zelf)
+  const sportBySchemaType = { running:'hardlopen', cycling:'fietsen', swimming:'zwemmen', walking:'wandelen' };
+  if (sportBySchemaType[type]) {
+    weeks.forEach(wk => wk.sessions.forEach(s => { if (!s.sport) s.sport = sportBySchemaType[type]; }));
+  }
+
   // HR zone injection in session descriptions
   const hrZones = getHRZones(profile);
   if (hrZones) {
@@ -1983,10 +1989,10 @@ function genRecovery(p, cfg) {
   const weeks = [];
 
   const sessions_pool = [
-    { name: 'Rustige wandeling',     type:'easy',     volume:'20–30 min', desc:'Laag tempo, geen drempel. Frisse lucht en bewustwording van je lichaam.', tags:['easy'] },
+    { name: 'Rustige wandeling',     type:'easy',     volume:'20–30 min', desc:'Laag tempo, geen drempel. Frisse lucht en bewustwording van je lichaam.', tags:['easy'], sport:'wandelen' },
     { name: 'Mobiliteitsroutine',    type:'mobility', volume:'25 min',    desc:'10 min foam rolling (rug, heupen, kuiten) + 15 min dynamische stretch.', tags:['easy'] },
     { name: 'Yoga — herstel',        type:'mobility', volume:'30 min',    desc:'Yin-stijl yoga: passieve houdingen lang vasthouden (2–4 min per pose). Focus op heupen, hamstrings en thorax.', tags:['easy'] },
-    { name: 'Rustig fietsen',        type:'easy',     volume:'30–45 min', desc:'Heel rustig, vlak terrein. Geen weerstand — alleen de bloedsomloop stimuleren.', tags:['easy'] },
+    { name: 'Rustig fietsen',        type:'easy',     volume:'30–45 min', desc:'Heel rustig, vlak terrein. Geen weerstand — alleen de bloedsomloop stimuleren.', tags:['easy'], sport:'fietsen' },
     { name: 'Ademhaling & ontspan.', type:'mobility', volume:'20 min',    desc:'Diafragmatisch ademhalen, progressieve spierontspanning. Ideaal bij stress of burn-out component.', tags:['easy'] },
     { name: 'Lichte krachtopbouw',   type:'strength', volume:'20–30 min', desc:'Bewegingspatronen zonder belasting: bodyweight squat, hip hinge, push-up op knieën. Focus op beweegleer.', tags:['easy'] },
   ];
@@ -2122,8 +2128,8 @@ function genCombo(p, cfg) {
       if (sport === 'hardlopen') {
         const isLong = idx === runCount - 1;
         const isQual = !isLong && idx === 1 && runCount >= 3 && cfg.qualityEnabled && !recov && w >= cfg.qualityFrom;
-        return runSession(day, idx, isLong, isQual && cfg.maxIntensity !== 'easy',
-          w >= Math.round(total*0.55), weekRunKm, runCount, w, total, taper, recov, cfg);
+        return { ...runSession(day, idx, isLong, isQual && cfg.maxIntensity !== 'easy',
+          w >= Math.round(total*0.55), weekRunKm, runCount, w, total, taper, recov, cfg), sport };
       }
       if (sport === 'fietsen') {
         const isLong = idx === bikeCount - 1;
@@ -2137,19 +2143,19 @@ function genCombo(p, cfg) {
                    : type==='tempo' ? `Warm op 15 min. ${clamp(Math.round(km*4),15,45)} min Zone 3–4 tempo. Koel af.`
                    : type==='interval' ? 'Warm op 15 min. 5–8× 2 min hoog vermogen + 2 min herstel. Koel af.'
                    : 'Rustige lange rit. Neem voeding mee vanaf 90 min.';
-        return { day, name, type, volume: km+' km', desc, tags:[type==='easy'?'easy':type==='long'?'long':'quality'] };
+        return { day, name, type, volume: km+' km', desc, tags:[type==='easy'?'easy':type==='long'?'long':'quality'], sport };
       }
       if (sport === 'zwemmen') {
         const isLong = idx === swimCount - 1;
         const isQual = cfg.qualityEnabled && !recov && !taper && idx === 1 && swimCount >= 2 && w >= cfg.qualityFrom;
-        return swimSession(day, idx, isLong, isQual && cfg.maxIntensity!=='easy',
-          w >= Math.round(total*0.55), weekSwimM, swimCount, w, total, taper, recov, cfg);
+        return { ...swimSession(day, idx, isLong, isQual && cfg.maxIntensity!=='easy',
+          w >= Math.round(total*0.55), weekSwimM, swimCount, w, total, taper, recov, cfg), sport };
       }
       if (sport === 'wandelen') {
         const isLong = idx === 0;
         const min = recov ? 20 : isLong ? 45 : 30;
         return { day, name: isLong?'Lange wandeling':'Actieve wandeling', type:isLong?'long':'easy',
-          volume: min+' min', desc:'Stevig wandeltempo — Zone 2.', tags:[isLong?'long':'easy'] };
+          volume: min+' min', desc:'Stevig wandeltempo — Zone 2.', tags:[isLong?'long':'easy'], sport };
       }
       // kracht
       const sets = recov ? Math.max(2, strSets-1) : strSets;
@@ -2157,7 +2163,7 @@ function genCombo(p, cfg) {
       const phase = pct<0.3 ? 'adaptation' : pct<0.65 ? 'hypertrophy' : 'strength';
       const reps  = phase==='adaptation' ? '12–15' : phase==='hypertrophy' ? '8–12' : '5–8';
       const isHome = p.activities.includes('thuis') && p.gym !== 'ja';
-      return strSession(day, idx, strCount, sets, reps, phase, isHome, p.gym==='ja', cfg.injRug, cfg.injSch, recov, w);
+      return { ...strSession(day, idx, strCount, sets, reps, phase, isHome, p.gym==='ja', cfg.injRug, cfg.injSch, recov, w), sport };
     });
 
     const vols = [];

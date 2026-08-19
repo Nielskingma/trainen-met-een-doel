@@ -1444,12 +1444,14 @@ function onGPSUpdate(pos) {
     );
     if (d > 0.003) {
       totalDist += d;
+      lastPos = pos;
       document.getElementById('live-dist').textContent = totalDist.toFixed(2);
       document.getElementById('live-speed').textContent = (pos.coords.speed * 3.6 || 0).toFixed(1);
       updatePace();
     }
+  } else {
+    lastPos = pos;
   }
-  lastPos = pos;
 }
 
 function updateTimer() {
