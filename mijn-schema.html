@@ -222,6 +222,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   -webkit-tap-highlight-color:transparent;
 }
 .sportpick-btn:hover{border-color:var(--accent);}
+.sportpick-btn.selected{border-color:var(--accent);background:rgba(74,222,128,.08);color:var(--accent);}
 .sportpick-icon{font-size:22px;}
 </style>
 </head>
@@ -250,9 +251,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <span style="font-size:12px">Los van een gepland schema — direct starten met live GPS.</span>
     </div>
     <div class="sportpick-row">
-      <button class="sportpick-btn" onclick="pickFreeSport('hardlopen','🏃 Hardlopen')"><span class="sportpick-icon">🏃</span> Hardlopen</button>
-      <button class="sportpick-btn" onclick="pickFreeSport('fietsen','🚴 Fietsen')"><span class="sportpick-icon">🚴</span> Fietsen</button>
-      <button class="sportpick-btn" onclick="pickFreeSport('wandelen','🥾 Wandelen')"><span class="sportpick-icon">🥾</span> Wandelen</button>
+      <button class="sportpick-btn" data-sport="hardlopen" onclick="selectFreeSport('hardlopen','🏃 Hardlopen')"><span class="sportpick-icon">🏃</span> Hardlopen</button>
+      <button class="sportpick-btn" data-sport="fietsen" onclick="selectFreeSport('fietsen','🚴 Fietsen')"><span class="sportpick-icon">🚴</span> Fietsen</button>
+      <button class="sportpick-btn" data-sport="wandelen" onclick="selectFreeSport('wandelen','🥾 Wandelen')"><span class="sportpick-icon">🥾</span> Wandelen</button>
+    </div>
+    <div id="free-start-section" style="display:none">
+      <button class="trk-btn trk-btn-lock hr-connect-btn" onclick="hrConnect()" style="display:none">❤️ Koppel hartslagsensor</button>
+      <div class="hr-status" style="text-align:center;font-size:11px;color:var(--muted);margin:-4px 0 12px;"></div>
+      <button class="trk-btn trk-btn-primary" onclick="beginFreeTraining()">▶ <span id="free-start-label">Start training</span></button>
     </div>
   </div>
 
@@ -262,8 +268,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <strong id="trk-idle-name">—</strong><br>
       <span id="trk-idle-target-label" style="font-size:12px;color:var(--accent);"></span>
     </div>
-    <button class="trk-btn trk-btn-lock" id="hr-connect-btn" onclick="hrConnect()" style="display:none">❤️ Koppel hartslagsensor</button>
-    <div id="hr-status" style="text-align:center;font-size:11px;color:var(--muted);margin:-4px 0 12px;"></div>
+    <button class="trk-btn trk-btn-lock hr-connect-btn" onclick="hrConnect()" style="display:none">❤️ Koppel hartslagsensor</button>
+    <div class="hr-status" style="text-align:center;font-size:11px;color:var(--muted);margin:-4px 0 12px;"></div>
     <button class="trk-btn trk-btn-primary" onclick="trkBeginRun()">▶ Start training</button>
   </div>
 
@@ -887,8 +893,7 @@ async function hrConnect() {
     const char = await service.getCharacteristic('heart_rate_measurement');
     await char.startNotifications();
     char.addEventListener('characteristicvaluechanged', hrOnData);
-    document.getElementById('hr-connect-btn').style.display = 'none';
-    document.getElementById('hr-status').textContent = `❤️ ${hrDevice.name || 'sensor'} verbonden`;
+    updateHrUI();
   } catch (e) {
     console.warn('HR-koppeling mislukt of geannuleerd:', e);
   }
@@ -908,15 +913,23 @@ function hrOnDisconnect() {
   hrDevice = null;
   const active = document.getElementById('trk-hr');
   if (active) active.textContent = '--';
-  const status = document.getElementById('hr-status');
-  if (status) status.textContent = '❤️ verbinding verbroken';
-  const btn = document.getElementById('hr-connect-btn');
-  if (btn && hrSupported()) btn.style.display = 'block';
+  document.querySelectorAll('.hr-status').forEach(el => el.textContent = '❤️ verbinding verbroken');
+  updateHrUI();
 }
 
 function hrAverageBpm() {
   if (!hrReadings.length) return null;
   return Math.round(hrReadings.reduce((a, b) => a + b, 0) / hrReadings.length);
+}
+
+// Werkt de HR-knop/status bij op zowel het sportkeuze- als het sessie-idle-scherm
+// (twee plekken in de DOM, één class — maar maar één ervan is ooit zichtbaar).
+function updateHrUI() {
+  const show = hrSupported() && !hrDevice;
+  document.querySelectorAll('.hr-connect-btn').forEach(btn => btn.style.display = show ? 'block' : 'none');
+  document.querySelectorAll('.hr-status').forEach(el => {
+    el.textContent = hrDevice ? `❤️ ${hrDevice.name || 'sensor'} verbonden` : '';
+  });
 }
 
 function parseKmTarget(volume) {
@@ -957,15 +970,29 @@ function startTracking(w, si) {
 
 function openFreeStart() {
   if (!navigator.geolocation) { alert('GPS niet beschikbaar op dit apparaat'); return; }
+  document.querySelectorAll('#trk-sportpick .sportpick-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('free-start-section').style.display = 'none';
+  trkFreeSport = null;
   trkSetState('sportpick');
   document.getElementById('tracker-overlay').classList.add('open');
 }
 
-function pickFreeSport(sport, label) {
-  trkWeek = null; trkSi = null; trkFreeSport = sport;
+// Kiezen is los van starten: sport selecteren toont de start-sectie op
+// hetzelfde scherm (incl. optionele hartslagkoppeling) i.p.v. naar een
+// apart bevestigingsscherm te gaan.
+function selectFreeSport(sport, label) {
+  trkFreeSport = sport;
+  document.querySelectorAll('#trk-sportpick .sportpick-btn').forEach(b => b.classList.toggle('selected', b.dataset.sport === sport));
+  document.getElementById('free-start-label').textContent = label;
+  document.getElementById('free-start-section').style.display = 'block';
+  updateHrUI();
+}
+
+function beginFreeTraining() {
+  trkWeek = null; trkSi = null;
   trkWarmupMin = null;
-  showIdleScreen(label, '');
-  trkSetState('idle');
+  showIdleScreen(document.getElementById('free-start-label').textContent, '');
+  trkBeginRun();
 }
 
 function showIdleScreen(label, targetLabel) {
@@ -976,11 +1003,7 @@ function showIdleScreen(label, targetLabel) {
   document.getElementById('trk-dist').textContent = '0.00';
   document.getElementById('trk-time').textContent = '00:00';
   document.getElementById('trk-pace').textContent = '--:--';
-
-  const hrBtn = document.getElementById('hr-connect-btn');
-  if (hrSupported() && !hrDevice) hrBtn.style.display = 'block';
-  else hrBtn.style.display = 'none';
-  document.getElementById('hr-status').textContent = hrDevice ? `❤️ ${hrDevice.name || 'sensor'} verbonden` : '';
+  updateHrUI();
 }
 
 function trkBeginRun() {
