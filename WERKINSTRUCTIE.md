@@ -38,11 +38,12 @@ allereerste versie (`generator.html`), parameterbaar per aanroeper (`increaseRat
 `taperFinal`/`taperOther`, `recoveryDrop`) zodat de bestaande, bewust net-iets-verschillende
 getallen per sport exact behouden blijven. Gebruikt door `genRunning`/`genCycling`/`genSwimming`/
 `genWalking` en (drie keer parallel, voor hardlopen/fietsen/zwemmen tegelijk) door `genCombo`.
-Daarnaast een gedeelde `bikeSession()` (was dubbel: los in `genCycling` + inline in `genCombo`)
-en `walkSession()` (voor standalone wandelen). **Let op**: `genCombo`'s eigen fiets-sessietekst
-bleek bij nader inzien al langer inhoudelijk net anders dan `genCycling`'s tekst (geen
-blessure-aanpassingen, andere formulering) — dat is *niet* gelijkgetrokken, want dat zou wél
-gedrag veranderen; alleen de volumecurve zelf is samengevoegd. `genStrength` (sets-gebaseerd,
+Daarnaast een gedeelde `bikeSession()` en `walkSession()`. Bij het samenvoegen bleek `genCombo`'s
+eigen fiets-sessietekst al langer inhoudelijk net anders dan `genCycling`'s tekst (geen
+blessure-aanpassingen, andere formulering), en wandelen binnen combo gebruikte vaste minuten
+(20/30/45) i.p.v. een meegroeiende curve. Op verzoek van gebruiker alsnog gelijkgetrokken
+(commit `454ec2a`): `genCombo` gebruikt nu overal dezelfde `bikeSession()`/`walkSession()` als
+de losse schema's, inclusief een echte, meegroeiende wandelvolume-curve. `genStrength` (sets-gebaseerd,
 geen taper) en `genRecovery` (vaste pool, geen groei) zijn bewust niet in deze abstractie
 geperst — die groeien fundamenteel anders.
 
