@@ -102,10 +102,35 @@
     -webkit-tap-highlight-color: transparent;
   }
   .wipe-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  .resume-banner {
+    margin-bottom: 20px; padding: 14px; border-radius: 12px;
+    border: 1px solid var(--warn); background: rgba(251,191,36,.06);
+    font-size: 12px; color: var(--text); line-height: 1.7;
+  }
+  .resume-banner strong { color: var(--warn); }
+  .resume-banner .resume-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .resume-btn {
+    padding: 6px 14px; border-radius: 8px; font-family: var(--mono); font-size: 11px;
+    letter-spacing: .08em; cursor: pointer; border: 1px solid var(--warn);
+    color: var(--warn); background: none; transition: all .2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .resume-btn:hover { background: rgba(251,191,36,.1); }
+  .resume-btn.primary { background: var(--warn); color: #0d1117; border-color: var(--warn); }
+  .resume-btn.primary:hover { background: #fcd34d; }
 </style>
 </head>
 <body>
 <div class="wrap">
+  <div class="resume-banner" id="resume-banner" style="display:none">
+    <strong>Onderbroken training gevonden.</strong> <span id="resume-summary"></span>
+    <div class="resume-actions">
+      <button class="resume-btn primary" onclick="resumeFromIndex()">Hervatten</button>
+      <button class="resume-btn" onclick="discardFromIndex()">Verwijderen</button>
+    </div>
+  </div>
+
   <div class="dev-banner">
     <span class="dev-badge">TEST</span>
     <span id="update-label">Update: laden…</span>
@@ -191,6 +216,31 @@ fetch('https://api.github.com/repos/Nielskingma/trainen-met-een-doel/commits?per
     document.getElementById('update-label').textContent = 'Update: ' + label;
   })
   .catch(() => { document.getElementById('update-label').textContent = 'Update: onbekend'; });
+
+// Als het besturingssysteem de app na scherm-uit/app-wisselen volledig herstart
+// i.p.v. het trainingsscherm te bewaren, land je hier op de startpagina i.p.v.
+// terug in mijn-schema.html — die pagina's eigen herstel-balk wordt dan nooit
+// getoond. Daarom dezelfde check hier: tmg_active_training staat in dezelfde
+// localStorage, ongeacht welke pagina 'm geschreven heeft.
+try {
+  const activeRaw = localStorage.getItem('tmg_active_training');
+  if (activeRaw) {
+    const saved = JSON.parse(activeRaw);
+    const elapsedMin = Math.max(0, Math.round((Date.now() - saved.startTime) / 60000));
+    const sportLabel = saved.label || saved.freeSport || 'Training';
+    document.getElementById('resume-summary').textContent =
+      `${sportLabel} · ${saved.totalDist.toFixed(2)} km · gestart ${elapsedMin} min geleden`;
+    document.getElementById('resume-banner').style.display = 'block';
+  }
+} catch (e) { localStorage.removeItem('tmg_active_training'); }
+
+function resumeFromIndex() {
+  window.location.href = 'mijn-schema.html?resume=1';
+}
+function discardFromIndex() {
+  localStorage.removeItem('tmg_active_training');
+  document.getElementById('resume-banner').style.display = 'none';
+}
 
 try {
   const raw = localStorage.getItem('tmg_generated_schema');

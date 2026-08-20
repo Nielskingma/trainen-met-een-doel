@@ -1500,6 +1500,14 @@ setInterval(() => {
 if (new URLSearchParams(window.location.search).get('free') === '1') {
   openFreeStart();
 }
+
+// Vanaf index.html's herstel-balk (?resume=1): een onderbroken training die
+// via de startpagina werd hersteld (bijv. omdat het besturingssysteem de app
+// na scherm-uit volledig herstartte i.p.v. deze pagina te bewaren) meteen
+// weer oppakken. Moet ook aan het eind staan, zelfde TDZ-reden als hierboven.
+if (new URLSearchParams(window.location.search).get('resume') === '1') {
+  resumeActiveTraining();
+}
 </script>
 </body>
 </html>

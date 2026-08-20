@@ -16,7 +16,7 @@ HTML + CSS + JavaScript, opgeslagen in ~/Trainen-met-een-doel/
 |---------|-----|
 | index.html | Startscherm — keuze tussen "Maak jouw schema" en "Kant-en-klare schema's" |
 | onboarding.html | Intakeformulier + schema-generatoren (genRunning/genCycling/genSwimming/genWalking/genStrength/genRecovery/genCombo) |
-| mijn-schema.html | Gegenereerd persoonlijk schema: voortgang, adaptief schema, prestatieverwachting, GPS-tracker (start training vanaf een hardloop/fiets/wandel-sessie), Bluetooth-hartslag |
+| mijn-schema.html | Gegenereerd persoonlijk schema: voortgang, adaptief schema, prestatieverwachting, GPS-tracker (vanaf een sessie of als losse "Start training"), Bluetooth-hartslag, pauzeknop, herstel na onderbreking |
 | schema.html | Vier vaste kant-en-klare schema's (5km/10km/HM/jongere) met eigen GPS-tracker — losse, standalone lane |
 | design.css | Stijlen |
 
@@ -27,8 +27,35 @@ HTML + CSS + JavaScript, opgeslagen in ~/Trainen-met-een-doel/
 2. **Echte uitslag herberekent het schema** — zodra die intakesessie is afgerond, wordt het gemeten resultaat (i.p.v. de zelf-ingeschatte afstand) in `profile.intaketest.hl` gezet en het schema opnieuw gegenereerd.
 3. **Rollend 2-wekenvenster** — het schema wordt nog wel volledig doorgerekend (deterministisch), maar alleen de eerstkomende 2 weken (`plannedThroughWeek`) krijgen zichtbare sessie-inhoud. Latere weken tonen een ingeklapte kaart (weeknummer + ruwe richting) tot mijn-schema.html ze automatisch bijvult via `ensureConcreteWeeks()` — hetzelfde regenerate-mechanisme dat ook curve-aanpassingen gebruikt.
 4. **Voortgang blijft behouden bij herberekenen** — `reconcileProgressAfterRegen()` in mijn-schema.html vergelijkt bij elke herberekening (curve-aanpassing, sessies/week wijzigen, intake-resultaat, horizon bijvullen) het vorige en nieuwe schema per week; alleen weken waar de sessie-indeling écht verandert verliezen hun afvinkjes/RPE/GPS-resultaten.
-5. **GPS-tracker** (mijn-schema.html): sessies met `sport` = hardlopen/fietsen/wandelen krijgen een "Start met GPS"-knop → idle-scherm met sessienaam → expliciete start → live afstand/tijd/tempo. Sessies met een warming-up in de omschrijving (of gewoon elke lichte/lange sessie, vast op minimaal 5 min) krijgen een aparte, getrackte warming-up-lap vóór de hoofdtraining. Optioneel: Bluetooth-hartslagsensor koppelen (borstband of horloge-broadcast-app) — **alleen Chrome-achtige browsers (Web Bluetooth), niet Safari/iOS**.
-6. **Beperking**: dit alles (intake-als-sessie-1, rollend venster) geldt vooralsnog alleen als hardlopen de hoofdsport is. Fietsen/zwemmen/wandelen/kracht-schema's blijven het oude gedrag: volledig gegenereerd, geen verplichte intake.
+5. **GPS-tracker** (mijn-schema.html): sessies met `sport` = hardlopen/fietsen/wandelen krijgen een "▶ Start training"-knop, of via de losse "Start training"-kaart op index.html/de zwevende knop in mijn-schema.html (sportkeuze, niet aan een schema gekoppeld). Sportkeuze/bevestiging/live-cijfers staan allemaal op één scherm (geen schermwissel bij op start drukken); bij een sessie staat de trainingsomschrijving er ook bij. Sessies met een warming-up in de omschrijving (of elke lichte/lange sessie, vast op minimaal 5 min) krijgen een aparte, getrackte warming-up-lap. Optioneel: Bluetooth-hartslagsensor koppelen — **alleen Chrome-achtige browsers (Web Bluetooth), niet Safari/iOS**.
+6. **Beperking**: intake-als-sessie-1 en het rollend venster gelden vooralsnog alleen als hardlopen de hoofdsport is. Fietsen/zwemmen/wandelen/kracht-schema's blijven het oude gedrag: volledig gegenereerd, geen verplichte intake.
+
+## GPS-tracker: robuustheid (toegevoegd 19 aug 2026, n.a.v. live testen)
+- **GPS zoekt al vóór starten**: zodra het trainingsscherm opent begint de app te zoeken naar
+  een positie met een onzekerheid ≤ 30 m; de startknop blijft uitgeschakeld ("GPS zoeken…") tot
+  die er is (na 20 sec zonder succes versoepelt de eis naar 100 m, anders blijf je vast zitten
+  binnenshuis). Voorkomt dat een slechte "koude" eerste fix als beginpunt gebruikt wordt.
+- **Afstandsfilter tijdens het lopen**: fixes met > 30 m onzekerheid worden genegeerd, bewegingen
+  < 5 m gelden als ruis, sprongen > 150 m tussen twee updates (onrealistisch voor 1×/seconde)
+  tellen niet mee als afstand. Was nodig na een gemelde bug (100 m lopen → 2 km getoond).
+- **Pauzeknop** (⏸/▶): GPS en klok stoppen netjes, gepauzeerde tijd/afstand telt niet mee bij
+  hervatten.
+- **Herstel na onderbreking**: mobiele browsers kunnen een achtergrond-pagina volledig herladen
+  (vooral tijdens een telefoongesprek) — alle trackerstate leeft alleen in het geheugen, dus was
+  dan gewoon kwijt. Nu wordt de lopende training elke seconde naar `localStorage`
+  (`tmg_active_training`) weggeschreven en pas opgeruimd bij bewust stoppen/opslaan/sluiten. Staat
+  die er bij het laden nog, dan toont de app een banner "Onderbroken training gevonden" met
+  Hervatten/Verwijderen. **Dit voorkomt niet dát de pagina gedood kan worden** (kan een
+  client-side web-app niet afdwingen zonder server/native app) — het zorgt alleen dat voortgang
+  herstelbaar is i.p.v. spoorloos te verdwijnen.
+- **Herstel-balk ook op index.html** (toegevoegd 20 aug 2026, n.a.v. live testen): bij handmatig
+  het scherm uitzetten (aan/uit-knop) bleek de telefoon de app soms niet te "pauzeren" maar
+  volledig te herstarten bij de startpagina — dan draaide de herstel-check in mijn-schema.html
+  nooit, dus geen banner, training leek spoorloos weg. `tmg_active_training` staat in dezelfde
+  localStorage ongeacht welke pagina 'm schreef, dus index.html checkt nu bij het laden ook zelf
+  of er een onderbroken training is en toont daar dezelfde banner. "Hervatten" gaat naar
+  `mijn-schema.html?resume=1`, wat aan het eind van het script automatisch `resumeActiveTraining()`
+  aanroept (zelfde patroon als `?free=1`). Getest via Node-simulatie van beide pagina's.
 
 ## Architectuur-opschoning (uitgevoerd 19 aug 2026)
 De 7 sport-generators hadden elk hun eigen, licht verschillende kopie van de volume-opbouw-logica
@@ -50,8 +77,7 @@ geperst — die groeien fundamenteel anders.
 Geverifieerd met een regressietest: 22 representatieve profielen (elk schema-type, curve-uitersten
 1 en 11, taper-grenzen bij 8/12 weken, blessures, combo met/zonder hardlopen/taper/wandelen)
 gegenereerd met de oude en de nieuwe code, output byte-voor-byte vergeleken — identiek in alle
-gevallen. Nog niet live in de browser getest, alleen via Node-simulatie van de daadwerkelijke
-generatorfuncties.
+gevallen.
 
 ## Starten (dagelijks gebruik)
 Open index.html in browser, of gebruik een lokale server:
@@ -68,6 +94,7 @@ GPS/Bluetooth werken alleen met https — testen op de telefoon gaat via de `bet
   `cd ~/Trainen-met-een-doel && git push origin beta` (en na wijzigingen op main: `git branch -f beta main`
   laat Claude al doen, alleen de push zelf niet)
 - Na akkoord op alle beta-functionaliteit: main pushen om ook de productie-app bij te werken
+- **Stand 20 aug 2026**: `beta` op GitHub is bijgewerkt t/m `a9e39b6` en live getest op Android.
 
 ## Openstaande taken
 Zie memory: ~/.claude/projects/-Users-nielskingma/memory/project_trainen_met_een_doel.md
