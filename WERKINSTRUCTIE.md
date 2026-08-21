@@ -20,13 +20,37 @@ gelezen te worden in de generatielogica.
 generator-referentie) bleek dat een flink aantal velden met een eigen formulierstap nergens in
 de generatielogica gelezen wordt — de gebruiker vult iets in en verwacht terecht dat het meetelt.
 
-**Bekende overtredingen (nog op te lossen)**:
-- `geslacht` — geen effect
-- `hl_tempo` — geen effect
-- `materiaal[]` — geen effect (de gymvraag `gym` werkt wél)
-- `herstel_van` / `herstel_duur` — geen effect
-- `doeldatum` — alleen een waarschuwingstekst, herberekent de schemaduur niet
-- `injury`: "Hart of bloeddruk" / "Anders" — geen factor toegepast, alleen als tag getoond
+**Opgelost (21 aug 2026)** — alle zes toen bekende overtredingen hebben nu een echt effect:
+- `geslacht` → `getHRZones()`: bij "vrouw" wordt de gevalideerde Gulati-formule
+  (206 − 0.88×leeftijd) gebruikt voor de geschatte maximale hartslag i.p.v. de klassieke,
+  vrijwel uitsluitend op mannen gebaseerde Fox-formule (220−leeftijd). Alleen een fallback —
+  een zelf ingevulde `hf_max` wint altijd.
+- `hl_tempo` → `buildPerformancePrediction()`: geeft nu ook een geschatte wedstrijdtijd op je
+  huidige tempo (bijv. "~21 km op jouw tempo → 1u45"), naast de bestaande afstandscapaciteit.
+  Bewust geen fitness-verbetering ingeschat — puur rekenwerk op de ingevulde waarde.
+- `materiaal[]` → `genStrength()`/`strSession()`: barbell of "volledig uitgerust" thuis maakt
+  de training functioneel gelijk aan een sportschooltraining (dezelfde oefeningenlijst i.p.v.
+  de beperktere bodyweight-lijst); dumbbells/weerstandsbanden voegen een concrete tip toe aan
+  de sessieomschrijving. Ook toegepast in `genCombo`'s krachtsessies.
+- `herstel_van` → verschijnt nu in de schema-subtitel ("gericht op: knieblessure") zodat
+  zichtbaar is dat de context is meegenomen.
+- `herstel_duur` → `genRecovery()`: verschuift het opbouwtempo — "langer" (chronisch) blijft
+  langer in de voorzichtige fase, "weken" (recent) bouwt sneller op.
+- `doeldatum` → `buildStep4()` verlengt de schemaduur nu automatisch (nooit verkort) als de
+  gekozen duur te kort is om het doel op tijd te halen, tenzij er al een expliciete einddatum
+  is gekozen. De waarschuwingstekst is aangepast om dit ook te melden.
+- `injury`: "Hart of bloeddruk" → nooit meer intervaltraining (`buildSchemaConfig`'s
+  `maxIntensity` capt op "tempo"), plus dezelfde 0.90×-volumefactor als "Anders", nu toegepast
+  via een nieuwe gedeelde `injuryGenericFactor()` in alle drie de sport-specifieke
+  blessurefuncties (`injuryRunFactor`/`injurySwimFactor`/`injuryBikeFactor`).
+
+**Getest**: nieuwe gerichte Node-tests voor alle zeven wijzigingen (zie `test_dead_fields.js`),
+plus de volledige 22-profielen regressietest herbevestigd — identiek gedrag voor profielen
+zonder deze velden ingevuld. Onderweg een gat in de regressietest zelf gevonden en gefixt (de
+DOM-stub liet `.value` een functie teruggeven i.p.v. een lege string, wat via
+`checkStep3()`/`restoreUI()` alle DOM-gelezen profielvelden corrumpeerde zodra die ook maar
+ergens in de output belandden — onschadelijk zolang niets ze las, maar mijn nieuwe code was de
+eerste die dat wél deed).
 
 **Hoe toepassen**: bij een nieuw formulierveld in dezelfde wijziging ook de generatorcode
 aanpassen zodat het veld een reëel effect krijgt — of bewust weglaten/als puur informatief

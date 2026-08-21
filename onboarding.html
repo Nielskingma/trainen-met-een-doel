@@ -1077,6 +1077,18 @@ function buildStep4() {
     updateTimingCalc();
   }
 
+  // doeldatum: verleng het schema automatisch (nooit verkorten) als de gekozen duur te kort
+  // is om het doel op tijd te halen. Niet als er al een expliciete einddatum is gekozen —
+  // die tab bepaalt de duur dan al zelf via updateTimingCalc().
+  if (profile.timing_type !== 'einddatum') {
+    const weeksNeeded = weeksNeededForDoeldatum(profile);
+    if (weeksNeeded && weeksNeeded > profile.tuning.duur) {
+      profile.tuning.duur = weeksNeeded;
+      preselectDuurButtons(weeksNeeded);
+      updateTimingCalc();
+    }
+  }
+
   // Performance prediction card
   updatePredCard(cfgPreview);
   refreshTuningPreview();
@@ -1209,7 +1221,14 @@ function onHFInput() {
 function getHRZones(p) {
   const rust = parseInt(p.hf_rust);
   let max = parseInt(p.hf_max);
-  if (!max && p.leeftijd) max = 220 - parseInt(p.leeftijd);
+  // Fallback-schatting alleen als er geen gemeten hf_max is ingevuld. Voor vrouwen is de
+  // Gulati-formule (206 − 0.88×leeftijd) beter gevalideerd dan de klassieke Fox-formule
+  // (220−leeftijd), die vrijwel uitsluitend op mannelijke proefpersonen is gebaseerd.
+  if (!max && p.leeftijd) {
+    max = p.geslacht === 'vrouw'
+      ? Math.round(206 - 0.88 * parseInt(p.leeftijd))
+      : 220 - parseInt(p.leeftijd);
+  }
   if (!rust || !max || max <= rust + 20) return null;
   const hrr = max - rust;
   return {
@@ -1258,7 +1277,18 @@ function buildPerformancePrediction(p, cfg) {
   }
   const peakLong = Math.round(peakKm * 0.42);
   const estRace  = Math.round(peakLong / 0.85);
-  return { startKm: Math.round(startKm * (p.tuning.sessies||3)), peakWeekKm: Math.round(peakKm), peakLong, estRace };
+
+  // hl_tempo (huidig gemiddeld tempo, "mm:ss") → geschatte wedstrijdtijd op je HUIDIGE tempo.
+  // Bewust geen fitness-verbetering ingeschat (die zou een onderbouwde claim zijn die de app
+  // niet kan waarmaken) — puur rekenwerk op wat je zelf hebt ingevuld.
+  let estRaceMin = null;
+  const tempoMatch = /^(\d{1,2}):(\d{2})$/.exec(p.hl_tempo || '');
+  if (tempoMatch) {
+    const secPerKm = parseInt(tempoMatch[1]) * 60 + parseInt(tempoMatch[2]);
+    estRaceMin = Math.round(estRace * secPerKm / 60);
+  }
+
+  return { startKm: Math.round(startKm * (p.tuning.sessies||3)), peakWeekKm: Math.round(peakKm), peakLong, estRace, estRaceMin };
 }
 
 function updatePredCard(cfg) {
@@ -1274,13 +1304,25 @@ function updatePredCard(cfg) {
     ['Langste duurloop', '~' + pred.peakLong + ' km'],
     ['Wedstrijdcapaciteit', '~' + pred.estRace + ' km'],
   ];
+  if (pred.estRaceMin != null) {
+    const h = Math.floor(pred.estRaceMin / 60), m = pred.estRaceMin % 60;
+    const timeStr = h > 0 ? `${h}u${String(m).padStart(2,'0')}` : `${m} min`;
+    rows.push([`~${pred.estRace} km op jouw tempo`, timeStr]);
+  }
   document.getElementById('pred-rows').innerHTML = rows.map(([k,v]) =>
     `<div class="pred-row"><span class="pred-key">${k}</span><span class="pred-val">${v}</span></div>`
   ).join('');
   const warn = document.getElementById('pred-warn');
   if (warn) {
     if (profile.doel && profile.doeldatum) {
-      warn.textContent = `Schema eindigt ${formatDateNL(profile.doeldatum) || ''}. Controleer of het schema lang genoeg is voor jouw doel.`;
+      const weeksNeeded = weeksNeededForDoeldatum(profile);
+      if (!weeksNeeded) {
+        warn.textContent = 'Doeldatum ligt binnen 2 weken — kies een latere datum of pas de duur handmatig aan.';
+      } else if (weeksNeeded <= profile.tuning.duur) {
+        warn.textContent = `Schema van ${profile.tuning.duur} weken past bij je doel op ${formatDateNL(profile.doeldatum)}.`;
+      } else {
+        warn.textContent = `Let op: voor ${formatDateNL(profile.doeldatum)} zijn minstens ${weeksNeeded} weken nodig — huidig schema is ${profile.tuning.duur} weken.`;
+      }
     } else {
       warn.textContent = '';
     }
@@ -1297,6 +1339,15 @@ function formatDateNL(isoStr) {
   if (!isoStr) return '';
   const d = new Date(isoStr + 'T12:00:00');
   return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// doel + doeldatum (stap 3) gaven tot nu toe alleen een passieve waarschuwingstekst, zonder
+// de schemaduur ooit echt aan te passen. Geeft null als er geen (bruikbare) doeldatum is.
+function weeksNeededForDoeldatum(p) {
+  if (!p.doel || !p.doeldatum) return null;
+  const diffDays = Math.round((new Date(p.doeldatum + 'T12:00:00') - new Date(todayStr() + 'T12:00:00')) / 86400000);
+  if (diffDays < 14) return null;
+  return Math.max(2, Math.round(diffDays / 7));
 }
 
 function selectTimingType(type) {
@@ -1582,7 +1633,11 @@ function buildSchemaConfig(p) {
   const hasRace        = wantsPerf && perfBalance >= 4;
   const qualityEnabled = perfBalance >= 3;
   const qualityFrom    = perfBalance >= 4 ? 3 : perfBalance === 3 ? 5 : 999;
-  const maxIntensity   = perfBalance <= 2 ? 'easy' : perfBalance === 3 ? 'tempo' : 'interval';
+  // Bij "Hart of bloeddruk" nooit intervaltraining aanbieden, ongeacht hoe prestatiegericht
+  // het doel is — hoogintensieve pieken zijn precies wat je bij die klacht wilt vermijden.
+  const maxIntensity = p.injury.includes('hart')
+    ? (perfBalance <= 2 ? 'easy' : 'tempo')
+    : (perfBalance <= 2 ? 'easy' : perfBalance === 3 ? 'tempo' : 'interval');
 
   // ── Sport-as (unie: meer sporten = meer sessies) ──
   const hasRun  = a.includes('hardlopen');
@@ -1627,6 +1682,7 @@ function buildSchemaConfig(p) {
     injSch:   p.injury.includes('schouder'),
     injNek:   p.injury.includes('nek'),
     injEnkel: p.injury.includes('enkel'),
+    injHart:  p.injury.includes('hart'),
   };
 }
 
@@ -1753,7 +1809,11 @@ function buildSchemaSubtitle(cfg) {
   const wk  = profile.tuning.duur + ' weken';
   const sx  = profile.tuning.sessies + 'x per week';
   const bal = cfg.hasConflict ? ['','puur herstel','herstelgericht','gebalanceerd','prestatiegercht','puur presteren'][cfg.perfBalance] : '';
-  return [lvl, wk, sx, bal].filter(Boolean).join(' · ');
+  // herstel_van was tot nu toe alleen opgeslagen, nooit teruggegeven aan de gebruiker —
+  // nu zichtbaar in de subtitel zodat duidelijk is waar het schema rekening mee houdt.
+  const doel = cfg.wantsHerstel && profile.herstel_van ? 'gericht op: ' + profile.herstel_van : '';
+  const hart = cfg.injHart ? 'geen intervaltraining i.v.m. hart/bloeddruk — overleg met een arts' : '';
+  return [lvl, wk, sx, bal, doel, hart].filter(Boolean).join(' · ');
 }
 
 // ── HELPERS ─────────────────────────────────────────
@@ -1815,10 +1875,18 @@ function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
 function round5(n) { return Math.round(n / 5) * 5; }
 
 // ── INJURY FACTORS ──────────────────────────────────
+// "hart"/"anders" zijn niet sport-specifiek (geen bekend gewricht/spiergroep) — passen
+// daarom bij elke sport dezelfde milde, generieke voorzichtigheidsfactor toe.
+function injuryGenericFactor(inj) {
+  let vol = 1.0;
+  if (inj.includes('hart'))   vol *= 0.90;
+  if (inj.includes('anders')) vol *= 0.90;
+  return vol;
+}
 function injuryRunFactor(p) {
   const inj = p.injury || [];
   if (!inj.length || inj.includes('geen')) return { vol: 1.0, maxRate: null };
-  let vol = 1.0, maxRate = null;
+  let vol = injuryGenericFactor(inj), maxRate = null;
   if (inj.includes('knie') || inj.includes('shin')) { vol *= 0.75; maxRate = 0.08; }
   if (inj.includes('heup'))  { vol *= 0.85; maxRate = maxRate ? Math.min(maxRate, 0.10) : 0.10; }
   if (inj.includes('rug'))   { vol *= 0.85; }
@@ -1828,7 +1896,7 @@ function injuryRunFactor(p) {
 function injurySwimFactor(p) {
   const inj = p.injury || [];
   if (!inj.length || inj.includes('geen')) return { vol: 1.0 };
-  let vol = 1.0;
+  let vol = injuryGenericFactor(inj);
   if (inj.includes('schouder')) vol *= 0.70;
   if (inj.includes('nek'))      vol *= 0.80;
   return { vol };
@@ -1836,7 +1904,7 @@ function injurySwimFactor(p) {
 function injuryBikeFactor(p) {
   const inj = p.injury || [];
   if (!inj.length || inj.includes('geen')) return { vol: 1.0 };
-  let vol = 1.0;
+  let vol = injuryGenericFactor(inj);
   if (inj.includes('knie')) vol *= 0.85;
   if (inj.includes('rug'))  vol *= 0.85;
   return { vol };
@@ -2121,6 +2189,14 @@ function genStrength(p, cfg) {
   const curve   = p.tuning.curve;
   const isHome  = p.activities.includes('thuis') && !p.activities.includes('kracht') && p.gym !== 'ja';
   const hasGym  = p.gym === 'ja' || p.gym === 'soms' || p.activities.includes('kracht');
+  // materiaal[] bepaalt wat een thuistraining daadwerkelijk kan: met barbell+rack is het
+  // in de praktijk een volwaardige gym-training; met (alleen) dumbbells/weerstandsbanden
+  // blijft het bodyweight-programma, met een toegevoegde tip om ze te gebruiken.
+  const mat = p.materiaal || [];
+  const equipTier = (mat.includes('barbell') || mat.includes('volledig')) ? 'full'
+    : mat.includes('dumbbells') ? 'dumbbell'
+    : mat.includes('weerstandsbanden') ? 'band'
+    : 'none';
   const increaseRate = [null, 0.01, 0.02, 0.02, 0.03, 0.04, 0.05, 0.07, 0.08, 0.10, 0.12, 0.15][curve];
   const days    = STR_DAYS_MAP[sess] || STR_DAYS_MAP[3];
 
@@ -2139,7 +2215,7 @@ function genStrength(p, cfg) {
     const sets  = recov ? Math.max(2, curSets - 1) : curSets;
     const phaseTitle = {adaptation:'Aanpassingsfase', hypertrophy:'Hypertrofase', strength:'Krachtfase', consolidation:'Consolidatiefase'}[phase];
 
-    const sessions = days.map((day, i) => strSession(day, i, sess, sets, reps, phase, isHome, hasGym, cfg.injRug, cfg.injSch, recov, w));
+    const sessions = days.map((day, i) => strSession(day, i, sess, sets, reps, phase, isHome, hasGym, cfg.injRug, cfg.injSch, recov, w, equipTier));
 
     weeks.push({
       weekNum: w, weekType: recov ? 'recovery' : 'normal',
@@ -2153,7 +2229,7 @@ function genStrength(p, cfg) {
   return weeks;
 }
 
-function strSession(day, idx, totalSess, sets, reps, phase, isHome, hasGym, injRug, injSch, recov, w) {
+function strSession(day, idx, totalSess, sets, reps, phase, isHome, hasGym, injRug, injSch, recov, w, equipTier) {
   let splitType;
   if (totalSess <= 2) splitType = 'fullbody';
   else if (totalSess <= 4) splitType = ['upper','lower','upper','lower'][idx % 4];
@@ -2163,6 +2239,11 @@ function strSession(day, idx, totalSess, sets, reps, phase, isHome, hasGym, injR
     return { day, name: 'Herstel & mobiliteit', type: 'mobility', volume: '20–30 min',
       desc: 'Lichte stretching, foam rolling en mobiliteitswerk. Geen zware belasting deze week.', tags: ['easy'] };
   }
+
+  // Barbell+rack of "volledig uitgerust" thuis is functioneel een gym — gebruik dan
+  // dezelfde oefeningenlijst als bij een sportschool i.p.v. de beperktere bodyweight-lijst.
+  const wasHome = isHome;
+  if (isHome && equipTier === 'full') isHome = false;
 
   const s = sets, r = reps;
   let name, desc, exercises;
@@ -2205,7 +2286,11 @@ function strSession(day, idx, totalSess, sets, reps, phase, isHome, hasGym, injR
     desc = `Benen en core. ${injRug?'Vermijd hoge axiale belasting — gebruik leg press in plaats van barbell squat.':''}`;
   }
 
-  return { day, name, type: 'strength', volume: sets + '×', desc: desc + '\n\n' + exercises.join('\n'), tags: ['quality'] };
+  let equipNote = '';
+  if (wasHome && equipTier === 'dumbbell') equipNote = ' Je hebt dumbbells beschikbaar — voeg gewicht toe aan squats, lunges en rij-bewegingen voor extra weerstand.';
+  else if (wasHome && equipTier === 'band') equipNote = ' Je hebt weerstandsbanden beschikbaar — gebruik ze voor extra weerstand bij rij- en drukbewegingen.';
+
+  return { day, name, type: 'strength', volume: sets + '×', desc: desc + equipNote + '\n\n' + exercises.join('\n'), tags: ['quality'] };
 }
 
 // ── RECOVERY GENERATOR ───────────────────────────────
@@ -2224,8 +2309,13 @@ function genRecovery(p, cfg) {
     { name: 'Lichte krachtopbouw',   type:'strength', volume:'20–30 min', desc:'Bewegingspatronen zonder belasting: bodyweight squat, hip hinge, push-up op knieën. Focus op beweegleer.', tags:['easy'] },
   ];
 
+  // herstel_duur (hoe lang de klacht al speelt) schuift het opbouwtempo: bij een langer
+  // slepende klacht ("langer" = >1 jaar) blijft het schema langer in de voorzichtige fase,
+  // bij een recente klacht ("weken") mag de opbouw juist sneller.
+  const rampBias = { weken: 0.8, langer: 1.3 }[p.herstel_duur] || 1.0;
+
   for (let w = 1; w <= total; w++) {
-    const pct = w / total;
+    const pct = Math.min(1, (w / total) / rampBias);
     const sessions = days.map((day, i) => ({ ...sessions_pool[(i + w) % sessions_pool.length], day }));
     weeks.push({
       weekNum: w, weekType: 'normal',
@@ -2389,7 +2479,12 @@ function genCombo(p, cfg) {
       const phase = pct<0.3 ? 'adaptation' : pct<0.65 ? 'hypertrophy' : 'strength';
       const reps  = phase==='adaptation' ? '12–15' : phase==='hypertrophy' ? '8–12' : '5–8';
       const isHome = p.activities.includes('thuis') && p.gym !== 'ja';
-      return { ...strSession(day, idx, strCount, sets, reps, phase, isHome, p.gym==='ja', cfg.injRug, cfg.injSch, recov, w), sport };
+      const mat = p.materiaal || [];
+      const equipTier = (mat.includes('barbell') || mat.includes('volledig')) ? 'full'
+        : mat.includes('dumbbells') ? 'dumbbell'
+        : mat.includes('weerstandsbanden') ? 'band'
+        : 'none';
+      return { ...strSession(day, idx, strCount, sets, reps, phase, isHome, p.gym==='ja', cfg.injRug, cfg.injSch, recov, w, equipTier), sport };
     });
 
     const vols = [];
