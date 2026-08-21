@@ -59,7 +59,7 @@ labelen als er geen zinvol effect is. Bij twijfel: liever geen veld dan een schi
 ## Bestanden
 | Bestand | Rol |
 |---------|-----|
-| index.html | Startscherm — keuze tussen "Maak jouw schema" en "Kant-en-klare schema's" |
+| index.html | Startscherm — keuze tussen "Maak jouw schema" en "Kant-en-klare schema's"; dev-banner met "Wis huidig schema" (alleen tmg_generated_schema/tmg_prev_schema/tmg_active_training + done_/rpe_/trk_-sleutels, behoudt profiel) en "Wis alle data" (volledige reset) |
 | onboarding.html | Intakeformulier + schema-generatoren (genRunning/genCycling/genSwimming/genWalking/genStrength/genRecovery/genCombo) |
 | mijn-schema.html | Gegenereerd persoonlijk schema: voortgang, adaptief schema, prestatieverwachting, GPS-tracker (vanaf een sessie of als losse "Start training"), Bluetooth-hartslag, pauzeknop, herstel na onderbreking |
 | schema.html | Vier vaste kant-en-klare schema's (5km/10km/HM/jongere) met eigen GPS-tracker — losse, standalone lane |
