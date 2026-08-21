@@ -188,6 +188,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .trk-state.visible{display:block;}
 .trk-info{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin:12px 20px 20px;padding:16px;font-size:13px;color:var(--muted);line-height:1.6;}
 .trk-info strong{color:var(--text);}
+.trk-active-warning{display:none;margin:0 20px 16px;padding:12px 14px;border-radius:10px;border:1px solid var(--warn);background:rgba(251,191,36,.06);font-size:11.5px;color:var(--text);line-height:1.6;}
+.trk-lock-warning{font-size:11px;color:var(--warn);margin:-8px 0 20px;line-height:1.5;}
 .trk-gps-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--warn);margin-right:6px;animation:trkPulse 1.5s infinite;}
 .trk-gps-dot.locked{background:var(--accent);animation:none;}
 @keyframes trkPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.4;transform:scale(.8);}}
@@ -301,6 +303,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
 
       <div class="gps-search-status"></div>
+      <div class="trk-active-warning">⚠️ Zet het scherm niet handmatig uit en sluit de app niet af — de training kan dan verloren gaan. Moet je stoppen? Gebruik de pauzeknop.</div>
       <button class="trk-btn trk-btn-primary trk-start-btn-gated" id="free-start-btn" onclick="beginFreeTraining()" disabled>▶ <span id="free-start-label">Start training</span></button>
       <button class="trk-btn trk-btn-lock trk-pause-btn" id="free-pause-btn" onclick="trkPauseToggle()" style="display:none">⏸ Pauzeren</button>
       <button class="trk-btn trk-btn-lock" id="free-lock-btn" onclick="trkLockScreen()" style="display:none">🔒 Scherm vergrendelen</button>
@@ -333,6 +336,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
 
     <div class="gps-search-status"></div>
+    <div class="trk-active-warning">⚠️ Zet het scherm niet handmatig uit en sluit de app niet af — de training kan dan verloren gaan. Moet je stoppen? Gebruik de pauzeknop.</div>
     <button class="trk-btn trk-btn-primary trk-start-btn-gated" id="sess-start-btn" onclick="beginSessionTraining()" disabled>▶ Start training</button>
     <button class="trk-btn trk-btn-lock trk-pause-btn" id="sess-pause-btn" onclick="trkPauseToggle()" style="display:none">⏸ Pauzeren</button>
     <button class="trk-btn trk-btn-lock" id="sess-lock-btn" onclick="trkLockScreen()" style="display:none">🔒 Scherm vergrendelen</button>
@@ -363,6 +367,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div><span id="trk-lock-time">00:00</span><div class="trk-lock-lbl">Tijd</div></div>
     <div><span id="trk-lock-pace">--:--</span><div class="trk-lock-lbl">Tempo /km</div></div>
   </div>
+  <div class="trk-lock-warning">⚠️ Zet het scherm niet handmatig uit — de training kan dan verloren gaan</div>
   <div class="trk-lock-hint">Houd 3 seconden ingedrukt om te ontgrendelen</div>
   <button class="trk-lock-btn" id="trk-lock-btn"
     onpointerdown="trkStartUnlock()" onpointerup="trkCancelUnlock()" onpointerleave="trkCancelUnlock()">
@@ -1059,6 +1064,7 @@ function resetFreeStartButtons() {
   document.getElementById('free-pause-btn').style.display = 'none';
   document.getElementById('free-lock-btn').style.display = 'none';
   document.getElementById('free-stop-btn').style.display = 'none';
+  document.querySelectorAll('.trk-active-warning').forEach(el => el.style.display = 'none');
 }
 
 // Blijft op hetzelfde scherm — geen trkSetState hier, alleen de cijfers
@@ -1073,6 +1079,7 @@ function beginFreeTraining() {
   document.getElementById('free-pause-btn').style.display = 'block';
   document.getElementById('free-lock-btn').style.display = 'block';
   document.getElementById('free-stop-btn').style.display = 'block';
+  document.querySelectorAll('.trk-active-warning').forEach(el => el.style.display = 'block');
   trkBeginRun();
   trkLockScreen();
 }
@@ -1091,6 +1098,7 @@ function showIdleScreen(label, targetLabel, desc) {
   document.getElementById('sess-pause-btn').style.display = 'none';
   document.getElementById('sess-lock-btn').style.display = 'none';
   document.getElementById('sess-stop-btn').style.display = 'none';
+  document.querySelectorAll('.trk-active-warning').forEach(el => el.style.display = 'none');
   updateHrUI();
   trkStartGpsSearch();
 }
@@ -1101,6 +1109,7 @@ function beginSessionTraining() {
   document.getElementById('sess-pause-btn').style.display = 'block';
   document.getElementById('sess-lock-btn').style.display = 'block';
   document.getElementById('sess-stop-btn').style.display = 'block';
+  document.querySelectorAll('.trk-active-warning').forEach(el => el.style.display = 'block');
   trkBeginRun();
   trkLockScreen();
 }
@@ -1465,6 +1474,7 @@ function resumeActiveTraining() {
   document.querySelectorAll('.trk-time-el').forEach(el => el.textContent = trkFormatTime(Math.floor((Date.now() - trkStartTime) / 1000)));
   document.querySelectorAll('.trk-hr-el').forEach(el => el.textContent = hrAverageBpm() || '--');
   document.querySelectorAll('.trk-pause-btn').forEach(b => b.textContent = trkPaused ? '▶ Hervatten' : '⏸ Pauzeren');
+  document.querySelectorAll('.trk-active-warning').forEach(el => el.style.display = 'block');
   trkUpdatePace();
   updateHrUI();
 

@@ -49,6 +49,13 @@ HTML + CSS + JavaScript, opgeslagen in ~/Trainen-met-een-doel/
   Hervatten/Verwijderen. **Dit voorkomt niet dát de pagina gedood kan worden** (kan een
   client-side web-app niet afdwingen zonder server/native app) — het zorgt alleen dat voortgang
   herstelbaar is i.p.v. spoorloos te verdwijnen.
+- **Waarschuwing tijdens actief trainen** (toegevoegd 21 aug 2026): zodra de training loopt
+  (op zowel het vrij-trainen- als het sessie-scherm, én op het vergrendelscherm) staat er nu een
+  amber-gekleurde melding: "Zet het scherm niet handmatig uit en sluit de app niet af — de
+  training kan dan verloren gaan. Moet je stoppen? Gebruik de pauzeknop." Gedeelde class
+  `.trk-active-warning`, getoond/verborgen op exact dezelfde momenten als de pauze/stop-knoppen
+  (`beginFreeTraining()`/`beginSessionTraining()`/`resumeActiveTraining()` tonen 'm,
+  `resetFreeStartButtons()`/`showIdleScreen()` verbergen 'm weer).
 - **Herstel-balk ook op index.html** (toegevoegd 20 aug 2026, n.a.v. live testen): bij handmatig
   het scherm uitzetten (aan/uit-knop) bleek de telefoon de app soms niet te "pauzeren" maar
   volledig te herstarten bij de startpagina — dan draaide de herstel-check in mijn-schema.html
