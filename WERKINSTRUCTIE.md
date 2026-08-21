@@ -11,6 +11,27 @@ In actieve ontwikkeling, beta-fase. Zie memory-bestand voor gedetailleerde archi
 Volledig client-side PWA — geen server, alles in de browser.
 HTML + CSS + JavaScript, opgeslagen in ~/Trainen-met-een-doel/
 
+## Ontwerpregel: elke invoer moet een passend effect hebben (21 aug 2026)
+Elk veld dat de gebruiker invult in de intake moet een aantoonbaar, bij die invoer passend
+effect hebben op het gegenereerde schema. Geen velden die alleen opgeslagen worden zonder ooit
+gelezen te worden in de generatielogica.
+
+**Waarom**: bij een volledige doorlichting van elk profielveld (zie de gepubliceerde
+generator-referentie) bleek dat een flink aantal velden met een eigen formulierstap nergens in
+de generatielogica gelezen wordt — de gebruiker vult iets in en verwacht terecht dat het meetelt.
+
+**Bekende overtredingen (nog op te lossen)**:
+- `geslacht` — geen effect
+- `hl_tempo` — geen effect
+- `materiaal[]` — geen effect (de gymvraag `gym` werkt wél)
+- `herstel_van` / `herstel_duur` — geen effect
+- `doeldatum` — alleen een waarschuwingstekst, herberekent de schemaduur niet
+- `injury`: "Hart of bloeddruk" / "Anders" — geen factor toegepast, alleen als tag getoond
+
+**Hoe toepassen**: bij een nieuw formulierveld in dezelfde wijziging ook de generatorcode
+aanpassen zodat het veld een reëel effect krijgt — of bewust weglaten/als puur informatief
+labelen als er geen zinvol effect is. Bij twijfel: liever geen veld dan een schijn van invloed.
+
 ## Bestanden
 | Bestand | Rol |
 |---------|-----|
