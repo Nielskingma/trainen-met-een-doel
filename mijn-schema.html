@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1117">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Mijn schema — Trainen met een doel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap" rel="stylesheet">
@@ -671,7 +675,7 @@ function renderSchema(schema) {
     <h1>${schema.title.includes(' ') ? schema.title.replace(/(\w+)$/, '<em>$1</em>') : schema.title}</h1>
     <div class="sv-sub">${schema.subtitle}</div>
     <div class="header-actions">
-      <button class="btn-sm" onclick="window.location='onboarding.html'">✦ Schema aanpassen</button>
+      <button class="btn-sm" onclick="window.location='onboarding.html?step=4'">✦ Instellingen aanpassen</button>
       <button class="btn-sm danger" onclick="resetSchema()">↺ Opnieuw beginnen</button>
     </div>
     <div id="sessies-adjust" style="margin-top:14px;"></div>
@@ -1507,6 +1511,10 @@ if (new URLSearchParams(window.location.search).get('free') === '1') {
 // weer oppakken. Moet ook aan het eind staan, zelfde TDZ-reden als hierboven.
 if (new URLSearchParams(window.location.search).get('resume') === '1') {
   resumeActiveTraining();
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 </script>
 </body>

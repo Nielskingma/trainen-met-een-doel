@@ -19,6 +19,7 @@ HTML + CSS + JavaScript, opgeslagen in ~/Trainen-met-een-doel/
 | mijn-schema.html | Gegenereerd persoonlijk schema: voortgang, adaptief schema, prestatieverwachting, GPS-tracker (vanaf een sessie of als losse "Start training"), Bluetooth-hartslag, pauzeknop, herstel na onderbreking |
 | schema.html | Vier vaste kant-en-klare schema's (5km/10km/HM/jongere) met eigen GPS-tracker — losse, standalone lane |
 | design.css | Stijlen |
+| manifest.json + sw.js + icons/ | PWA-installeerbaarheid (toegevoegd 21 aug 2026) |
 
 (19 aug 2026: `generator.html` verwijderd — was dode code, de allereerste versie van de app, nergens meer aan gelinkt.)
 
@@ -57,6 +58,45 @@ HTML + CSS + JavaScript, opgeslagen in ~/Trainen-met-een-doel/
   `mijn-schema.html?resume=1`, wat aan het eind van het script automatisch `resumeActiveTraining()`
   aanroept (zelfde patroon als `?free=1`). Getest via Node-simulatie van beide pagina's.
 
+## Product-audit uitgevoerd — hoog/matig-prioriteit doorgevoerd (21 aug 2026)
+Op verzoek een onafhankelijke doorlichting gedaan van onboarding, overzicht en GPS-tracker
+(zie het gepubliceerde artifact voor de volledige audit), en direct de hoog/matig-bevindingen
+geïmplementeerd:
+- **Stap 3 opgesplitst met sub-navigatie**: was één ongestructureerd megaformulier (basis,
+  materiaal, niveau/intake per sport, hartslag, doel/herstel, blessures allemaal na elkaar).
+  Nu een sticky chip-balk (`renderStep3Nav()`) die alleen de daadwerkelijk zichtbare secties
+  toont en er via `scrollIntoView` + `IntersectionObserver` naartoe navigeert/highlight. Raakt
+  de bestaande sport-afhankelijke show/hide-logica (`toggle()`/`updateCondBlocks()`) niet aan —
+  puur een navigatielaag erbovenop.
+- **Live voorbeeld onder de tuning-sliders** (stap 4): curve/focus/conflict waren drie abstracte
+  cijfers zonder zichtbaar effect. `computeTuningPreview()` draait de ECHTE generatorfunctie
+  (dezelfde als "Schema genereren" gebruikt, geen herïmplementatie) en toont de zwaarste
+  niet-taper/hersteweek live mee terwijl je sleept ("Rond week 9 van 12 train je in je zwaarste
+  week ongeveer 42 km").
+- **Slimme startwaarden op de sliders**: `computeSmartTuningDefaults()` zet curve/focus/
+  perfHerstel bij een écht nieuw profiel op een berekend beginpunt (o.b.v. doelen, blessures,
+  huidige activiteit) i.p.v. altijd blind op het neutrale midden — met een "voorgesteld"-hint.
+  Overschrijft nooit een bestaand/aangepast profiel (guard op `tmg_generated_schema` +
+  fabrieksdefault-check + `tuningTouched`-vlag zodra de gebruiker zelf aan een slider zit).
+- **"Instellingen aanpassen" springt direct naar stap 4**: de knop in mijn-schema.html's header
+  ging naar `onboarding.html` zonder parameter — dat startte altijd bij stap 1, dus moest je
+  Doel → Activiteit → Situatie opnieuw langs voor één slider. Nu `onboarding.html?step=4`,
+  afgehandeld ná de `let currentStep`-declaratie aan het eind van het script (zelfde
+  TDZ-patroon als `?free=1`/`?resume=1` in mijn-schema.html).
+- **Installeerbare PWA**: `manifest.json` (standalone display, target-icoon in `icons/`) + een
+  bewust kale `sw.js` (geen enkele cache — alleen install/activate/fetch-passthrough, puur om
+  aan Android's installeerbaarheidscriteria te voldoen) toegevoegd aan alle 4 pagina's. Lost het
+  achtergrond-kill-probleem niet fundamenteel op, maar geïnstalleerde PWA's worden door Android
+  doorgaans minder agressief opgeruimd dan een los tabblad — de goedkoopste stap met echt effect.
+- **Bewust nog niet gedaan** (uit de audit, lagere prioriteit): banner-kleurhiërarchie in
+  mijn-schema.html, en de grote gok (Capacitor-wrapper voor náadloze achtergrond-GPS) — pas de
+  moeite waard bij bewezen noodzaak.
+- **Getest**: nieuwe Node-simulaties voor live-preview, slimme defaults (4 scenario's incl. "niet
+  overschrijven bij terugkerende gebruiker") en de `?step=4`-sprong; volledige 22-profielen
+  generator-regressietest herbevestigd (identieke output, dus de architectuur-opschoning is niet
+  geraakt); alle eerdere sessie-tests (GPS/pauze/herstel/schermen) opnieuw gedraaid, geen
+  regressies. Nog niet live in de browser getest door de gebruiker.
+
 ## Architectuur-opschoning (uitgevoerd 19 aug 2026)
 De 7 sport-generators hadden elk hun eigen, licht verschillende kopie van de volume-opbouw-logica
 (herstelweek-ritme, taper, groei-percentages). Nu samengevoegd tot één gedeelde
@@ -94,7 +134,9 @@ GPS/Bluetooth werken alleen met https — testen op de telefoon gaat via de `bet
   `cd ~/Trainen-met-een-doel && git push origin beta` (en na wijzigingen op main: `git branch -f beta main`
   laat Claude al doen, alleen de push zelf niet)
 - Na akkoord op alle beta-functionaliteit: main pushen om ook de productie-app bij te werken
-- **Stand 20 aug 2026**: `beta` op GitHub is bijgewerkt t/m `a9e39b6` en live getest op Android.
+- **Stand 20 aug 2026**: `main` én `beta` op GitHub staan beide op `a87d777` (gebruiker heeft
+  bewust ook main gepusht, niet alleen beta zoals eerder de bedoeling was) — productie is dus nu
+  ook bijgewerkt met alle GPS/pauze/herstel-fixes uit deze en de vorige sessie.
 
 ## Openstaande taken
 Zie memory: ~/.claude/projects/-Users-nielskingma/memory/project_trainen_met_een_doel.md

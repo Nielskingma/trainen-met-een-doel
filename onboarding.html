@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1117">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Maak jouw schema — Trainen met een doel</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&display=swap" rel="stylesheet">
@@ -54,6 +58,21 @@ body::before {
 .step-title { font-family: var(--serif); font-size: 28px; font-weight: 700; line-height: 1.2; margin-bottom: 6px; }
 .step-title em { font-style: italic; color: var(--accent); }
 .step-sub { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 28px; }
+
+.step-subnav {
+  display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 20px; margin: -6px 0 0;
+  position: sticky; top: 0; background: var(--bg); z-index: 5;
+  scrollbar-width: none;
+}
+.step-subnav::-webkit-scrollbar { display: none; }
+.subnav-chip {
+  flex-shrink: 0; font-family: var(--mono); font-size: 10px; letter-spacing: .06em;
+  padding: 6px 12px; border-radius: 99px; border: 1px solid var(--border);
+  color: var(--muted); background: var(--surface); cursor: pointer;
+  transition: all .2s; white-space: nowrap; -webkit-tap-highlight-color: transparent;
+}
+.subnav-chip.done { color: var(--accent2); border-color: rgba(134,239,172,0.3); }
+.subnav-chip.active { color: var(--bg); background: var(--accent); border-color: var(--accent); font-weight: 700; }
 
 /* ── CHOICE CARDS ── */
 .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 24px; }
@@ -181,6 +200,10 @@ body::before {
 .tuning-card {
   padding: 12px 0; border-bottom: 1px solid var(--border);
 }
+.tuning-suggested-hint {
+  font-size: 11px; color: var(--accent2); line-height: 1.6; padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
 .tuning-card:last-child { border-bottom: none; }
 .tuning-label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
 .tuning-label span { color: var(--accent); font-family: var(--serif); font-size: 15px; font-weight: 700; text-transform: none; letter-spacing: 0; }
@@ -211,6 +234,9 @@ input[type=range] {
 
 /* intake feedback + prediction */
 .intake-feedback { font-size: 11px; color: var(--accent2); margin-top: 6px; min-height: 16px; line-height: 1.6; }
+.tuning-preview-label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.tuning-preview-text { font-size: 12.5px; color: var(--text); line-height: 1.6; }
+.tuning-preview-text strong { color: var(--accent2); font-family: var(--serif); font-size: 15px; }
 .pred-card { background: var(--surface); border: 1px solid rgba(74,222,128,.25); border-radius: 14px; padding: 18px; margin-bottom: 12px; }
 .pred-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
 .pred-row:last-child { border-bottom: none; }
@@ -345,8 +371,10 @@ input[type=range] {
     <div class="step-eyebrow">Jouw situatie</div>
     <h1 class="step-title">Vertel iets over <em>jezelf</em></h1>
     <p class="step-sub">Hoe meer je invult, hoe beter het advies aansluit.</p>
+    <div class="step-subnav" id="step3-subnav"></div>
 
     <!-- BASIS -->
+    <div id="sec-basis">
     <div class="form-row">
       <div class="form-block">
         <label class="form-label">Leeftijd</label>
@@ -416,6 +444,7 @@ input[type=range] {
         <div class="num-btn" data-val="20" onclick="selectSingle(this, 'duur-row', 'duur')">20+ wk</div>
       </div>
     </div>
+    </div><!-- /sec-basis -->
 
     <!-- CONDITIONEEL: kracht / thuis → materiaal -->
     <div class="cond-block" id="cond-materiaal">
@@ -443,6 +472,7 @@ input[type=range] {
     </div>
 
     <!-- CONDITIONEEL: niveau per sport (altijd zichtbaar als sport geselecteerd) -->
+    <div id="sec-niveau">
     <div class="cond-block" id="cond-hl-niveau">
       <hr class="section-divider">
       <div class="section-heading">Jouw hardloopniveau</div>
@@ -490,8 +520,10 @@ input[type=range] {
         </div>
       </div>
     </div>
+    </div><!-- /sec-niveau -->
 
     <!-- INTAKETEST: hardlopen -->
+    <div id="sec-intake">
     <div class="cond-block" id="cond-hl-intake">
       <hr class="section-divider">
       <div class="section-heading">Intaketest hardlopen</div>
@@ -528,6 +560,7 @@ input[type=range] {
         <div class="intake-feedback" id="intake-zw-fb"></div>
       </div>
     </div>
+    </div><!-- /sec-intake -->
 
     <!-- HARTSLAG (optioneel, bij cardio sporten) -->
     <div class="cond-block" id="cond-hartslag">
@@ -594,6 +627,7 @@ input[type=range] {
     </div>
 
     <!-- BLESSURES (altijd zichtbaar) -->
+    <div id="sec-blessures">
     <hr class="section-divider">
     <div class="section-heading">Belasting & blessures</div>
     <div class="form-block">
@@ -610,6 +644,7 @@ input[type=range] {
         <div class="injury-tag" data-val="anders" onclick="toggleTag(this, 'injury')">Anders</div>
       </div>
     </div>
+    </div><!-- /sec-blessures -->
 
     <div class="info-box" style="margin-bottom:28px">
       <strong>Privacy</strong> — Alle gegevens worden alleen lokaal op jouw apparaat opgeslagen. Er wordt niets verstuurd of bijgehouden.
@@ -642,10 +677,13 @@ input[type=range] {
     </div>
 
     <div class="tuning-panel">
+    <div class="tuning-suggested-hint" id="tuning-suggested-hint" style="display:none">
+      Startwaarden hieronder zijn voorgesteld op basis van je profiel — pas gerust aan.
+    </div>
     <!-- TUNING: opbouwcurve -->
     <div class="tuning-card">
       <div class="tuning-label">Opbouwcurve — <span id="curve-label">Gebalanceerd</span></div>
-      <input type="range" min="1" max="11" value="6" id="curve-slider" oninput="updateCurve(this.value)">
+      <input type="range" min="1" max="11" value="6" id="curve-slider" oninput="profile.tuning.tuningTouched=true;updateCurve(this.value)">
       <div class="range-labels"><span>Extreme herstel</span><span>Maximaal</span></div>
     </div>
 
@@ -710,15 +748,21 @@ input[type=range] {
     <!-- TUNING: focus cardio vs kracht -->
     <div class="tuning-card" id="tuning-focus-card">
       <div class="tuning-label">Focus <span id="focus-label">Gebalanceerd</span></div>
-      <input type="range" min="1" max="5" value="3" id="focus-slider" oninput="updateFocus(this.value)">
+      <input type="range" min="1" max="5" value="3" id="focus-slider" oninput="profile.tuning.tuningTouched=true;updateFocus(this.value)">
       <div class="range-labels"><span>Cardio / uithoudingsvermogen</span><span>Kracht / spieren</span></div>
     </div>
 
     <!-- TUNING: presteren ↔ herstellen (alleen bij conflict) -->
     <div class="tuning-card" id="tuning-conflict-card" style="display:none">
       <div class="tuning-label">Balans herstel ↔ presteren <span id="conflict-label">Gebalanceerd</span></div>
-      <input type="range" min="1" max="5" value="3" id="conflict-slider" oninput="updatePerfHerstel(this.value)">
+      <input type="range" min="1" max="5" value="3" id="conflict-slider" oninput="profile.tuning.tuningTouched=true;updatePerfHerstel(this.value)">
       <div class="range-labels"><span>Puur herstel</span><span>Puur presteren</span></div>
+    </div>
+
+    <!-- LIVE VOORBEELD: wat betekenen de drie sliders hierboven concreet -->
+    <div class="tuning-card" id="tuning-preview-card" style="display:none">
+      <div class="tuning-preview-label">Verwachte piekweek bij deze instelling</div>
+      <div class="tuning-preview-text" id="tuning-preview-text"></div>
     </div>
     </div>
 
@@ -801,7 +845,7 @@ function goTo(n) {
   setTimeout(() => { from.classList.add('hidden'); from.classList.remove('slide-out-left','slide-out-right'); }, 340);
   currentStep = n;
   if (n === 2) resetActivities();
-  if (n === 3) updateCondBlocks();
+  if (n === 3) { updateCondBlocks(); renderStep3Nav(); }
   if (n === 4) buildStep4();
   window.scrollTo(0, 0);
   save();
@@ -907,6 +951,52 @@ function toggle(id, show) {
   if (el) el.classList.toggle('visible', show);
 }
 
+// Stap 3 bundelt basis/materiaal/niveau/intake/hartslag/doel/herstel/blessures op één
+// scrollende pagina. Deze sub-navigatie geeft structuur zonder de onderliggende
+// sport-afhankelijke show/hide-logica (toggle() hierboven) aan te raken: alleen secties
+// die al 'visible' zijn (of altijd zichtbaar) krijgen een chip, die naar het anker scrollt.
+const STEP3_SECTIONS = [
+  { id: 'sec-basis',       label: 'Basis',     always: true },
+  { id: 'cond-materiaal',  label: 'Materiaal' },
+  { id: 'sec-niveau',      label: 'Niveau' },
+  { id: 'sec-intake',      label: 'Intake' },
+  { id: 'cond-hartslag',   label: 'Hartslag' },
+  { id: 'cond-presteren',  label: 'Doel' },
+  { id: 'cond-herstellen', label: 'Herstel' },
+  { id: 'sec-blessures',   label: 'Blessures', always: true },
+];
+let step3Observer = null;
+
+function renderStep3Nav() {
+  const nav = document.getElementById('step3-subnav');
+  if (!nav) return;
+  nav.innerHTML = '';
+  if (step3Observer) { step3Observer.disconnect(); step3Observer = null; }
+
+  const visible = STEP3_SECTIONS.filter(s => {
+    const el = document.getElementById(s.id);
+    return el && (s.always || el.classList.contains('visible'));
+  });
+
+  visible.forEach(s => {
+    const chip = document.createElement('div');
+    chip.className = 'subnav-chip';
+    chip.textContent = s.label;
+    chip.dataset.target = s.id;
+    chip.onclick = () => document.getElementById(s.id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    nav.appendChild(chip);
+  });
+
+  if (typeof IntersectionObserver === 'undefined') return;
+  step3Observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      const chip = nav.querySelector(`.subnav-chip[data-target="${entry.target.id}"]`);
+      if (chip) chip.classList.toggle('active', entry.isIntersecting);
+    });
+  }, { rootMargin: '-96px 0px -70% 0px', threshold: 0 });
+  visible.forEach(s => step3Observer.observe(document.getElementById(s.id)));
+}
+
 // ── STEP 4 ──
 function buildStep4() {
   if (profile.duur)  profile.tuning.duur    = parseInt(profile.duur);
@@ -931,6 +1021,20 @@ function buildStep4() {
     preselectTuning('sessies-tuning-row', 'tuning_sessies', String(profile.tuning.sessies));
     document.getElementById('sessies-label').textContent = profile.tuning.sessies + '×';
   }
+
+  // Slimme startwaarden: alleen bij een écht nieuw profiel (nog geen schema
+  // gegenereerd, sliders nog op de fabrieksdefaults en nooit handmatig aangeraakt)
+  // — zo overschrijft dit nooit een bewuste eerdere keuze van een terugkerende
+  // gebruiker. curve/focus/perfHerstel blijven daarna gewoon vrij aanpasbaar.
+  const isFreshTuning = !localStorage.getItem('tmg_generated_schema') && !profile.tuning.tuningTouched &&
+    profile.tuning.curve === 6 && profile.tuning.focus === 3;
+  if (isFreshTuning) {
+    const smart = computeSmartTuningDefaults();
+    profile.tuning.curve = smart.curve;
+    profile.tuning.focus = smart.focus;
+    profile.tuning.perfHerstel = smart.perfHerstel;
+  }
+  document.getElementById('tuning-suggested-hint').style.display = isFreshTuning ? 'block' : 'none';
 
   document.getElementById('curve-slider').value = profile.tuning.curve;
   document.getElementById('focus-slider').value = profile.tuning.focus;
@@ -975,6 +1079,7 @@ function buildStep4() {
 
   // Performance prediction card
   updatePredCard(cfgPreview);
+  refreshTuningPreview();
 
   // profile summary
   document.getElementById('profile-name').textContent = buildProfileName();
@@ -1022,6 +1127,7 @@ function adjustActivity(act, delta) {
   const el = document.getElementById('act-count-' + act);
   if (el) el.textContent = newVal;
   updateTotalSessiesLabel();
+  refreshTuningPreview();
   save();
 }
 
@@ -1283,21 +1389,94 @@ function updateTimingCalc() {
 const curveLabels = ['', 'Extreme herstel', 'Heel rustig', 'Rustig', 'Voorzichtig', 'Licht', 'Gebalanceerd', 'Actief', 'Progressief', 'Intensief', 'Heel intensief', 'Maximaal'];
 const focusLabels = ['', 'Puur cardio', 'Cardio-gericht', 'Gebalanceerd', 'Kracht-gericht', 'Puur kracht'];
 
+// Slimme startwaarden voor de tuning-sliders, gebaseerd op wat al bekend is
+// uit stap 1-3 (doelen, blessures, huidige activiteit) — i.p.v. altijd blind
+// op het neutrale midden te starten. Puur een startpunt: de gebruiker kan nog
+// alles zelf verschuiven, zie isFreshTuning-check in buildStep4().
+function computeSmartTuningDefaults() {
+  const goals = profile.goals || [];
+  const hasInjury = profile.injury && profile.injury.length && !(profile.injury.length === 1 && profile.injury[0] === 'geen');
+
+  let curve = 6;
+  if (goals.includes('herstellen')) curve -= 2;
+  if (hasInjury) curve -= 1;
+  if (profile.actief === 'nauwelijks') curve -= 1;
+  if (goals.includes('presteren') && profile.actief === 'actief' && !goals.includes('herstellen')) curve += 2;
+  curve = Math.max(1, Math.min(11, curve));
+
+  let focus = 3;
+  if (goals.includes('sterker')) focus += 1;
+  if (goals.includes('presteren') && !goals.includes('sterker')) focus -= 1;
+  focus = Math.max(1, Math.min(5, focus));
+
+  let perfHerstel = 3;
+  if (hasInjury) perfHerstel -= 1;
+  perfHerstel = Math.max(1, Math.min(5, perfHerstel));
+
+  return { curve, focus, perfHerstel };
+}
+
 function updateCurve(v) {
   profile.tuning.curve = parseInt(v);
   document.getElementById('curve-label').textContent = curveLabels[v];
+  refreshTuningPreview();
   save();
 }
 function updateFocus(v) {
   profile.tuning.focus = parseInt(v);
   document.getElementById('focus-label').textContent = focusLabels[v];
+  refreshTuningPreview();
   save();
 }
 const perfHerstelLabels = ['','Puur herstel','Herstelgericht','Gebalanceerd','Prestatiegercht','Puur presteren'];
 function updatePerfHerstel(v) {
   profile.tuning.perfHerstel = parseInt(v);
   document.getElementById('conflict-label').textContent = perfHerstelLabels[v];
+  refreshTuningPreview();
   save();
+}
+
+// Live voorbeeld onder de tuning-sliders: curve/focus/conflict zijn drie abstracte
+// getallen die samen één schema bepalen — i.p.v. drie losse (en dus deels misleidende)
+// voorbeelden per slider, draait dit steeds de ECHTE generator-functie die ook
+// "Schema genereren" gebruikt, en toont het resultaat van de zwaarste niet-taper/
+// niet-hersteweek. Geen herïmplementatie van de volumeberekening — alleen uitlezen.
+function computeTuningPreview() {
+  if (!profile.activities.length || !profile.tuning.duur || !profile.tuning.sessies) return null;
+  try {
+    const cfg = buildSchemaConfig(profile);
+    let weeks;
+    if      (cfg.type === 'running')  weeks = genRunning(profile, cfg);
+    else if (cfg.type === 'cycling')  weeks = genCycling(profile, cfg);
+    else if (cfg.type === 'swimming') weeks = genSwimming(profile, cfg);
+    else if (cfg.type === 'strength') weeks = genStrength(profile, cfg);
+    else if (cfg.type === 'walking')  weeks = genWalking(profile, cfg);
+    else if (cfg.type === 'combo')    weeks = genCombo(profile, cfg);
+    else return null;
+    if (!weeks || !weeks.length) return null;
+
+    let peak = null, peakScore = -1;
+    weeks.forEach(wk => {
+      if (wk.weekType === 'taper' || wk.weekType === 'recovery') return;
+      const nums = String(wk.weekVolume || '').match(/\d+(\.\d+)?/g) || [];
+      const score = nums.reduce((s, n) => s + parseFloat(n), 0);
+      if (score > peakScore) { peakScore = score; peak = wk; }
+    });
+    if (!peak) return null;
+    return { volume: peak.weekVolume, weekNum: peak.weekNum, total: profile.tuning.duur };
+  } catch (e) {
+    return null;
+  }
+}
+
+function refreshTuningPreview() {
+  const card = document.getElementById('tuning-preview-card');
+  const text = document.getElementById('tuning-preview-text');
+  if (!card || !text) return;
+  const preview = computeTuningPreview();
+  if (!preview) { card.style.display = 'none'; return; }
+  text.innerHTML = `Rond week ${preview.weekNum} van ${preview.total} train je in je zwaarste week ongeveer <strong>${preview.volume}</strong>.`;
+  card.style.display = 'block';
 }
 function updateDuurLabel(v) {
   profile.tuning.duur = v;
@@ -2305,6 +2484,21 @@ function restoreUI() {
   checkStep3();
 }
 
+// Vanaf mijn-schema.html's "Instellingen aanpassen"-knop (?step=4): direct naar de
+// tuning-stap i.p.v. de hele wizard opnieuw te doorlopen voor een profiel dat al
+// bestaat. Staat aan het eind, ná de `let currentStep`-declaratie hierboven —
+// zelfde TDZ-reden als de andere URL-param-checks in dit project (zie ?free=1/
+// ?resume=1 in mijn-schema.html): eerder aanroepen geeft een ReferenceError.
+if (localStorage.getItem('tmg_profile') && new URLSearchParams(window.location.search).get('step') === '4') {
+  document.getElementById('step-1').classList.add('hidden');
+  document.getElementById('step-4').classList.remove('hidden');
+  currentStep = 4;
+  buildStep4();
+}
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
 </script>
 </body>
 </html>
