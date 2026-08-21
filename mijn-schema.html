@@ -148,13 +148,21 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .adapt-btn.primary { background: var(--warn); color: #0d1117; border-color: var(--warn); }
 .adapt-btn.primary:hover { background: #fcd34d; }
 
+/* Eigen kleur (danger, niet warn): een onderbroken training is tijdgevoelig —
+   voortgang kan alsnog verdwijnen als er niet gehandeld wordt — en moet dus
+   opvallen tussen andere, minder dringende amber-banners (zie adaptive-banner
+   hierboven). */
 .resume-banner {
   margin: 16px 20px; padding: 14px; border-radius: 12px;
-  border: 1px solid var(--warn); background: rgba(251,191,36,.06);
+  border: 1px solid var(--danger); background: rgba(248,113,113,.06);
   font-size: 12px; color: var(--text); line-height: 1.7;
 }
-.resume-banner strong { color: var(--warn); }
+.resume-banner strong { color: var(--danger); }
 .resume-banner .adapt-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.resume-banner .adapt-btn { border-color: var(--danger); color: var(--danger); }
+.resume-banner .adapt-btn:hover { background: rgba(248,113,113,.1); }
+.resume-banner .adapt-btn.primary { background: var(--danger); color: #0d1117; border-color: var(--danger); }
+.resume-banner .adapt-btn.primary:hover { background: #fca5a5; }
 
 /* ── PREDICTION BLOCK ── */
 .pred-overview { background: var(--surface); border: 1px solid rgba(74,222,128,.2); border-radius: 14px; padding: 18px; margin-bottom: 14px; }

@@ -88,9 +88,14 @@ geïmplementeerd:
   aan Android's installeerbaarheidscriteria te voldoen) toegevoegd aan alle 4 pagina's. Lost het
   achtergrond-kill-probleem niet fundamenteel op, maar geïnstalleerde PWA's worden door Android
   doorgaans minder agressief opgeruimd dan een los tabblad — de goedkoopste stap met echt effect.
-- **Bewust nog niet gedaan** (uit de audit, lagere prioriteit): banner-kleurhiërarchie in
-  mijn-schema.html, en de grote gok (Capacitor-wrapper voor náadloze achtergrond-GPS) — pas de
-  moeite waard bij bewezen noodzaak.
+- **Banner-kleurhiërarchie** (21 aug 2026, alsnog toegevoegd op verzoek): resume-banner
+  (onderbroken training — tijdgevoelig, voortgang kan alsnog verloren gaan) gebruikt nu
+  `--danger` i.p.v. dezelfde amber (`--warn`) als adaptive-banner (optionele suggestie), op zowel
+  index.html als mijn-schema.html. `.pred-overview` (prestatieverwachting) bleek bij nader inzien
+  al neutraal gestyled (`var(--surface)`, geen amber) — geen wijziging nodig, de audit overschatte
+  dit punt licht.
+- **Bewust nog niet gedaan**: de grote gok (Capacitor-wrapper voor náadloze achtergrond-GPS) —
+  pas de moeite waard bij bewezen noodzaak.
 - **Getest**: nieuwe Node-simulaties voor live-preview, slimme defaults (4 scenario's incl. "niet
   overschrijven bij terugkerende gebruiker") en de `?step=4`-sprong; volledige 22-profielen
   generator-regressietest herbevestigd (identieke output, dus de architectuur-opschoning is niet
